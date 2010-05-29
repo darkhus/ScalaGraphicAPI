@@ -17,11 +17,14 @@ import javax.swing.JFrame
 
 object Main extends JFrame {
 
-  var r : Rectangle = new Rectangle()
-  var t : Triangle = new Triangle()
-  var e : Ellipse = new Ellipse()
-  var c : Circle = new Circle()
-  var l : Line = new Line()
+  var rectangle : Rectangle = null
+  var triangle : Triangle = null
+  var ellipse : Ellipse = null
+  var circle : Circle = null
+  var line : Line = null
+  var arc : Arc = null
+  var curve : Curve = null
+  var rrect : RoundRect = null
   var gl : GL2 = null;
 
   def main(args: Array[String]): Unit = {
@@ -59,11 +62,14 @@ object Main extends JFrame {
 
       gl.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
 
-      r.gl = gl;
-      t.gl = gl;
-      e.gl = gl;
-      c.gl = gl;
-      l.gl = gl;
+      rectangle = new Rectangle(gl)
+      triangle = new Triangle(gl)
+      ellipse = new Ellipse(gl)
+      circle = new Circle(gl)
+      line = new Line(gl)
+      arc = new Arc(gl)
+      rrect = new RoundRect(gl)
+      curve = new Curve(gl)
     }
 
     @Override
@@ -76,30 +82,50 @@ object Main extends JFrame {
       val gl:GL2 = drawable.getGL().getGL2()     
       gl.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
       setColor(1, 0, 0, 0)
-      r.draw(100, 100, 100, 100)
-      r.draw(210, 210, 110, 110)
+      arc.drawOutline(250, 250, 100, 100, 1.0f, false)
+
+      circle.draw(250, 250, 5)
+      setColor(1, 1, 1, 0)
+      curve.draw(100, 100, 400, 100, 100, 300)
+      setColor(1, 0, 0, 0)
+      curve.drawOutline(100, 100, 400, 100, 100, 300, 1.0f, false)
+
+      setColor(1, 1, 1, 0)
+      rrect.draw(100, 350, 200, 50, 0, 0)
+
+      setColor(1, 0, 0, 0)
+      rrect.drawOutline(100, 350, 200, 50, 20, 20, 2.0f)
+            
+      
+      /*
+      rectangle.draw(100, 100, 100, 100)
+      rectangle.draw(210, 210, 110, 110)
 
       setColor(0, 1, 0, 0)
-      t.draw(Array(0, 0, 100, 0, 50, 100))
+      triangle.draw(Array(0, 0, 100, 0, 50, 100))
 
       setColor(0, 0, 1, 0)
-      e.draw(300, 300, 40, 20)
+      ellipse.draw(300, 300, 80, 40)
 
       setColor(0, 0.5f, 1, 0)
-      e.draw(310, 310, 40, 20)
+      ellipse.draw(310, 310, 80, 40)
 
+      setColor(0.0f, 0.0f, 0.0f, 0)
+      circle.draw(130, 410, 75)
       setColor(0.9f, 0.9f, 0.9f, 0)
-      c.draw(130, 410, 45)
+      circle.draw(330, 410, 75)
 
-      setColor(0.9f, 0.9f, 0.9f, 0)
-      c.draw(330, 410, 45)
+      setColor(0.0f, 0.0f, 0.0f, 0)
+      circle.drawOutline(250, 250, 100, 5.0f, 0x00FF)
 
       setColor(0.5f, 0.5f, 0.5f, 0)
-      l.draw(5.0f, Array(200,200, 200,0, 250,350))
+      line.draw(5.0f, Array(200,200, 200,0, 250,350))
 
       setColor(0.9f, 0.5f, 0.5f, 0)
-      l.draw(1.0f, Array(20,300, 200,300, 250,50, 400,400))
+      line.draw(1.0f, Array(20,300, 200,300, 250,50, 400,400))
+      */
     }
     
     @Override

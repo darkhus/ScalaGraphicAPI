@@ -6,39 +6,61 @@ import java.nio.FloatBuffer
 import javax.media.opengl._
 import java.lang.Math
 
-class Ellipse {
+class Ellipse(gl2:GL2) {
   var bufferId : Array[Int] = Array(0)
-//  var bufferSize : Int = 0
   var floatSize : Int = 4
-  var inited : Boolean = false
-  var bufferData : FloatBuffer = FloatBuffer.allocate(360)
+  var bufferData : FloatBuffer = FloatBuffer.allocate(362)
   var bufferByte : ByteBuffer = null
-  var verts : Array[Float] = new Array[Float](360)
-  var gl : GL2 = null
+  var verts : Array[Float] = new Array[Float](362)
+  var gl : GL2 = gl2
   var vbo : VBuffer = new VBuffer
+  var vertsNum : Int = 360
+  var stroke = 0x00FF
+  var drawType:Int = GL.GL_LINE_STRIP
+
+  vbo.init(gl, bufferId, verts, bufferData, floatSize)
 
   def draw(x:Int, y:Int, w:Int, h:Int) = {
-    if(inited==false){
-//     calcEllipse(x, y, w, h)
-      vbo.init(gl, bufferId, verts, bufferData, floatSize)
-      inited = true;
-    }
-
-    calcEllipse(x, y, w, h)
+    calcEllipse(x, y, w, h, 360)
 
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
 
-    vbo.drawBuffer(gl, GL2.GL_POLYGON, verts.size/2)
+    vbo.drawBuffer(gl, GL2.GL_POLYGON, vertsNum)
   }
 
-  private def calcEllipse(x:Int, y:Int, w:Int, h:Int) = {
+  def drawOutline(x:Int, y:Int, w:Int, h:Int, width:Int) = {
+    calcEllipse(x, y, w, h, 360)
+
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+
+    if(stroke != 0xFFFF){
+      gl.glEnable(GL2.GL_LINE_STIPPLE)
+      gl.glLineStipple(1, stroke.shortValue )
+    }
+    gl.glLineWidth(width)
+
+    vbo.drawBuffer(gl, drawType, vertsNum)
+
+    gl.glDisable(GL2.GL_LINE_STIPPLE)
+  }
+
+  private def calcEllipse(x:Int, y:Int, w:Int, h:Int, arcAngle:Int) = {
      var i = 0;
-      while (i<360){
-        verts(i) = w * Math.cos( Math.toRadians(i.doubleValue) ).floatValue + x;
-        verts(i+1) = h * Math.sin( Math.toRadians(i.doubleValue) ).floatValue + y;
+     var a:Double = 60
+
+    vertsNum = /*a.intValue/2*/ a.intValue*arcAngle / 360 /2  // vertices per circle
+     var z:Double = 360.0 / a // angle step
+      while (i<a){
+        verts(i) = w * Math.cos( Math.toRadians(i.doubleValue*z) ).floatValue + x ;
+        verts(i+1) = h * Math.sin( Math.toRadians(i.doubleValue*z) ).floatValue + y;
         i+=2
       }
   }
+
+  def setStroke(s:Int){
+    stroke = s
+  }
+
   def deinit() = {
     gl.glDeleteBuffers(1, bufferId, 0)
   }
