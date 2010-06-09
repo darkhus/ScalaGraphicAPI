@@ -30,6 +30,7 @@ object Main extends JFrame {
   def main(args: Array[String]): Unit = {
     val profile : GLProfile = GLProfile.getDefault()
     val caps : GLCapabilities = new GLCapabilities(profile)
+    caps.setNumSamples(8)
     println(caps.toString)
     val canvas : GLCanvas = new GLCanvas(caps)
     val el : OGLEventListener = new OGLEventListener
@@ -42,7 +43,7 @@ object Main extends JFrame {
     setVisible(true)
 
     val anim : Animator = new Animator(canvas)
-    anim.start
+//    anim.start
   }
 
   class OGLEventListener extends GLEventListener{
@@ -83,49 +84,12 @@ object Main extends JFrame {
       gl.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-      setColor(1, 0, 0, 0)
-      arc.drawOutline(250, 250, 100, 100, 1.0f, false)
-
-      circle.draw(250, 250, 5)
-      setColor(1, 1, 1, 0)
-      curve.draw(100, 100, 400, 100, 100, 300)
-      setColor(1, 0, 0, 0)
-      curve.drawOutline(100, 100, 400, 100, 100, 300, 1.0f, false)
-
-      setColor(1, 1, 1, 0)
-      rrect.draw(100, 350, 200, 50, 0, 0)
-
-      setColor(1, 0, 0, 0)
-      rrect.drawOutline(100, 350, 200, 50, 20, 20, 2.0f)
-            
-      
-      /*
-      rectangle.draw(100, 100, 100, 100)
-      rectangle.draw(210, 210, 110, 110)
-
-      setColor(0, 1, 0, 0)
-      triangle.draw(Array(0, 0, 100, 0, 50, 100))
-
       setColor(0, 0, 1, 0)
-      ellipse.draw(300, 300, 80, 40)
+      rrect.draw(100, 350, 200, 50, 20, 20)
 
-      setColor(0, 0.5f, 1, 0)
-      ellipse.draw(310, 310, 80, 40)
+      rrect.draw(100, 250, 200, 50, 20, 20)
 
-      setColor(0.0f, 0.0f, 0.0f, 0)
-      circle.draw(130, 410, 75)
-      setColor(0.9f, 0.9f, 0.9f, 0)
-      circle.draw(330, 410, 75)
-
-      setColor(0.0f, 0.0f, 0.0f, 0)
-      circle.drawOutline(250, 250, 100, 5.0f, 0x00FF)
-
-      setColor(0.5f, 0.5f, 0.5f, 0)
-      line.draw(5.0f, Array(200,200, 200,0, 250,350))
-
-      setColor(0.9f, 0.5f, 0.5f, 0)
-      line.draw(1.0f, Array(20,300, 200,300, 250,50, 400,400))
-      */
+      rrect.draw(100, 150, 200, 50, 20, 20)
     }
     
     @Override
