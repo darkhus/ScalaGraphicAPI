@@ -38,31 +38,25 @@ class RoundRect(gl2:GL2) {
   val JOIN_BEVEL = 0
   val JOIN_MITER = 1
   val JOIN_ROUND = 2
-  var cap_style = CAP_FLAT
-  var join_style = JOIN_BEVEL
+  var cap_style = CAP_ROUND
+  var join_style = JOIN_ROUND
   var miter_limit = 5
-  var roundness = 25
+  var roundness = 10
   var arcInd:Int = 0;
 
   vbo.init(gl, bufferId, verts, bufferData, floatSize)
 
   def draw(x:Int, y:Int, w:Int, h:Int, arcw:Int, arch:Int) = {
-
     calcRect(x, y, w, h, arcw, arch)
-
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
-//        vbo.drawBuffer(gl, GL.GL_POINTS, vertsNum)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+    vbo.drawBuffer(gl, GL.GL_POINTS, vertsNum)
+//    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
   def drawOutline(x:Int, y:Int, w:Int, h:Int, arcw:Int, arch:Int, width:Float) = {
-
     calcRect(x, y, w, h, arcw, arch)
-
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
-
     vbo.drawBuffer(gl, GL.GL_LINE_STRIP, vertsNum)
-    
   }
 
 
@@ -138,7 +132,7 @@ class RoundRect(gl2:GL2) {
         }
       case java.awt.geom.PathIterator.SEG_CLOSE =>
         {
-          endCapOrCapClose(startInd, false, true)
+          endCapOrCapClose(startInd, false, false)
         }
       }
       path.next
@@ -168,7 +162,7 @@ class RoundRect(gl2:GL2) {
     curx = tmpverts(ind)
     cury = tmpverts(ind+1)    
     var x2:Float = tmpverts(ind+2)
-    var y2:Float = tmpverts(ind+3)    
+    var y2:Float = tmpverts(ind+3)
 
     var dx:Float = x2 - x1;
     var dy:Float = y2 - y1;
@@ -176,55 +170,52 @@ class RoundRect(gl2:GL2) {
     var pw:Float = 0.0f;
 
     if (dx == 0.0)
-        pw = width / scala.Math.abs(dy);
+      pw = width / scala.Math.abs(dy);
     else if (dy == 0.0)
-        pw = width / scala.Math.abs(dx);
+      pw = width / scala.Math.abs(dx);
     else
-      
       pw = width / scala.Math.sqrt(dx*dx + dy*dy).floatValue;
 
     nx = -dy * pw;
-    ny = dx * pw;    
+    ny = dx * pw;
 
     cap_style match {
       case CAP_FLAT => {
-        verts(i) = curx + nx
-        verts(i+1) = cury + ny        
-        i+=2
+          verts(i) = curx + nx
+          verts(i+1) = cury + ny
+          i+=2
       }
       case CAP_SQUARE => {
-        verts(i) = curx - ny + nx
-        verts(i+1) = cury + nx +ny
-        i+=2
-        emitLineSeg(curx - ny, cury + nx, nx, ny)
+          verts(i) = curx - ny + nx
+          verts(i+1) = cury + nx +ny
+          i+=2
+          emitLineSeg(curx - ny, cury + nx, nx, ny)
       }
       case CAP_ROUND => {
-          /*
-          arcPoints(curx, cury, curx+nx, cury+ny, curx-nx, cury-ny);
+          arcPoints(curx, cury, curx+nx, cury+ny, curx-nx, cury-ny)
           var count = i + arcInd + 2
-//        m_vertices.resize(m_vertices.size() + points.size() + 2 * int(invisibleJump));
-//        int count = m_vertices.size();
-        var front = 0;
-        var end = arcInd / 2;
-        while(front != end) {
-          count-=1
-          verts(count) = arcVerts(2 * end - 1)
-          count-=1
-          verts(count) = arcVerts(2 * end - 2)
-
+          i = count
+          var front = 0
+          var end = arcInd / 2
+          while(front != end) {
+            count-=1
+            verts(count) = arcVerts(2 * end - 1)
+            count-=1
+            verts(count) = arcVerts(2 * end - 2)
+            
             end-=1
             if(front != end) {
-            verts(count) = arcVerts(2 * front + 1)
-            verts(count) = arcVerts(2 * front + 0)
+              count-=1
+              verts(count) = arcVerts(2 * front + 1)
+              count-=1
+              verts(count) = arcVerts(2 * front + 0)
             }
             front+=1
-        }
-            verts(count - 1) = verts(count + 1);
-            verts(count - 2) = verts(count + 0);
-            */
+          }
+          verts(count - 1) = verts(count + 1)
+          verts(count - 2) = verts(count + 0)   
       }
     }
-
     emitLineSeg(curx, cury, nx, ny)
   }
 
@@ -235,20 +226,20 @@ class RoundRect(gl2:GL2) {
     var x2:Float = tmpverts(ind)
     var y2:Float = tmpverts(ind+1)
 
-    var dx:Float = x2 - x1;
-    var dy:Float = y2 - y1;
+    var dx:Float = x2 - x1
+    var dy:Float = y2 - y1
 
-    var pw:Float = 0.0f;
+    var pw:Float = 0.0f
 
     if (dx == 0)
-        pw = width / scala.Math.abs(dy);
+        pw = width / scala.Math.abs(dy)
     else if (dy == 0)
-        pw = width / scala.Math.abs(dx);
+        pw = width / scala.Math.abs(dx)
     else
-      pw = width / scala.Math.sqrt(dx*dx + dy*dy).floatValue;
+      pw = width / scala.Math.sqrt(dx*dx + dy*dy).floatValue
 
-    nx = -dy * pw;
-    ny = dx * pw;
+    nx = -dy * pw
+    ny = dx * pw
 
     join_style match {
       case JOIN_BEVEL => {
@@ -274,8 +265,8 @@ class RoundRect(gl2:GL2) {
 
           var pu = px * prevNvx + py * prevNvy
           var qv = qx * nx + qy * ny
-          var ix = (ny * pu - prevNvy * qv) / xprod;
-          var iy = (prevNvx * qv - nx * pu) / xprod;
+          var ix = (ny * pu - prevNvy * qv) / xprod
+          var iy = (prevNvx * qv - nx * pu) / xprod
 
         if ((ix - px) * (ix - px) + (iy - py) * (iy - py) <= miter_limit * miter_limit) {
             verts(i) = ix.floatValue
@@ -287,8 +278,8 @@ class RoundRect(gl2:GL2) {
         }
       }
       case JOIN_ROUND => {
-          val prevNvx = verts(i - 2) - curx;
-          val prevNvy = verts(i - 1) - cury;
+          val prevNvx = verts(i - 2) - curx
+          val prevNvy = verts(i - 1) - cury
           var ii:Int = 0
           if(nx * prevNvy - ny * prevNvx < 0) {
             arcPoints(0, 0, nx, ny, -prevNvx, -prevNvy)
@@ -304,28 +295,28 @@ class RoundRect(gl2:GL2) {
                 emitLineSeg(curx, cury, arcVerts(2*ii + 0), arcVerts(2*ii + 1) )
                 ii+=1
             }
-        }        
+        }
       }
     }
     emitLineSeg(curx, cury, nx, ny)
   }
 
   def arcPoints(cx:Float, cy:Float, fromX:Float, fromY:Float, toX:Float, toY:Float) = {
-    var dx1 = fromX - cx;
-    var dy1 = fromY - cy;
-    var dx2 = toX - cx;
-    var dy2 = toY - cy;
+    var dx1 = fromX - cx
+    var dy1 = fromY - cy
+    var dx2 = toX - cx
+    var dy2 = toY - cy
 
     val sin_theta = scala.Math.sin(scala.Math.Pi / roundness).floatValue
     val cos_theta = scala.Math.cos(scala.Math.Pi / roundness).floatValue
 
-    arcInd = 0;
+    arcInd = 0
     // > 180
     while (dx1 * dy2 - dx2 * dy1 < 0) {
-      val tmpx = dx1 * cos_theta - dy1 * sin_theta;
-      val tmpy = dx1 * sin_theta + dy1 * cos_theta;
-      dx1 = tmpx;
-      dy1 = tmpy;
+      val tmpx = dx1 * cos_theta - dy1 * sin_theta
+      val tmpy = dx1 * sin_theta + dy1 * cos_theta
+      dx1 = tmpx
+      dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
       arcInd+=2
@@ -333,20 +324,20 @@ class RoundRect(gl2:GL2) {
 
     // > 90
     while (dx1 * dx2 + dy1 * dy2 < 0) {
-      val tmpx = dx1 * cos_theta - dy1 * sin_theta;
-      val tmpy = dx1 * sin_theta + dy1 * cos_theta;
-      dx1 = tmpx;
-      dy1 = tmpy;
+      val tmpx = dx1 * cos_theta - dy1 * sin_theta
+      val tmpy = dx1 * sin_theta + dy1 * cos_theta
+      dx1 = tmpx
+      dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
       arcInd+=2
     }
 
     while (dx1 * dy2 - dx2 * dy1 > 0) {
-      val tmpx = dx1 * cos_theta - dy1 * sin_theta;
-      val tmpy = dx1 * sin_theta + dy1 * cos_theta;
-      dx1 = tmpx;
-      dy1 = tmpy;
+      val tmpx = dx1 * cos_theta - dy1 * sin_theta
+      val tmpy = dx1 * sin_theta + dy1 * cos_theta
+      dx1 = tmpx
+      dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
       arcInd+=2
@@ -379,7 +370,21 @@ class RoundRect(gl2:GL2) {
           emitLineSeg(curx+ny, cury-nx, nx, ny)
       }
       case CAP_ROUND => {
-
+          arcPoints(curx, cury, verts(i-2), verts(i-1), verts(i-4), verts(i-3) )
+          var front:Int = 0
+          var end:Int = arcInd / 2
+          while (front != end) {
+            verts(i) =  arcVerts(2*end-2)
+            verts(i+1) = arcVerts(2*end-1)
+            i+=2
+            end-=1
+            if (front != end) {
+              verts(i) = arcVerts(2*front+0)
+              verts(i+1) = arcVerts(2*front+1)
+              i+=2
+              front+=1
+            }            
+        }
       }
     }
   }
