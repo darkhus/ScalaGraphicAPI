@@ -27,6 +27,8 @@ object Main extends JFrame {
   var rrect : RoundRect = null
   var gl : GL2 = null;
 
+  val graphic:Scala2DGraphic = new Scala2DGraphic
+
   def main(args: Array[String]): Unit = {
     val profile : GLProfile = GLProfile.getDefault()
     val caps : GLCapabilities = new GLCapabilities(profile)
@@ -51,7 +53,7 @@ object Main extends JFrame {
       def init(drawable : GLAutoDrawable) = {
       gl = drawable.getGL().getGL2;
       val glu:GLU = new GLU();
-      gl.glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
+      gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
       gl.glViewport(0, 0, 500, 500);
       gl.getGL2().glMatrixMode(GLMatrixFunc.GL_PROJECTION);
@@ -71,6 +73,8 @@ object Main extends JFrame {
       arc = new Arc(gl)
       rrect = new RoundRect(gl)
       curve = new Curve(gl)
+
+      graphic.init(gl)
     }
 
     @Override
@@ -80,25 +84,42 @@ object Main extends JFrame {
 
     @Override
     def display(drawable : GLAutoDrawable) = {
-      val gl:GL2 = drawable.getGL().getGL2()     
-      gl.glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
-      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-      setColor(0, 0, 1, 0)
-      rrect.draw(100, 350, 200, 50, 20, 20)
+      graphic.ClearCanvas(1, 1, 1)
 
-      rrect.draw(100, 250, 200, 50, 20, 20)
+      graphic.SetColor(0, 0, 1)
 
-      rrect.draw(100, 150, 200, 50, 20, 20)
+      graphic.RectangleOutline(50, 20, 100, 50, graphic.JOIN_BEVEL, 5)
+
+      graphic.TriangleOutline(50, 100, 150, 100, 100, 200, graphic.JOIN_BEVEL, 5)           
+      graphic.TriangleOutline(180, 100, 280, 100, 230, 200, graphic.JOIN_ROUND, 5)
+      graphic.TriangleOutline(310, 100, 410, 100, 360, 200, graphic.JOIN_MITER, 5)
+      
+      graphic.SetColor(0, 0, 1)
+      graphic.Line(50, 400, 300, 400, graphic.CAP_ROUND, 10)
+      graphic.SetColor(0, 0, 0)
+      graphic.Line(50, 400, 300, 400, graphic.CAP_FLAT, 0.5f)
+      graphic.SetColor(0, 0, 1)
+      graphic.Line(50, 360, 300, 360, graphic.CAP_SQUARE, 10)
+      graphic.SetColor(0, 0, 0)
+      graphic.Line(50, 360, 300, 360, graphic.CAP_FLAT, 0.5f)
+      graphic.SetColor(0, 0, 1)
+      graphic.Line(50, 320, 300, 320, graphic.CAP_FLAT, 10)
+      graphic.SetColor(0, 0, 0)
+      graphic.Line(50, 320, 300, 320, graphic.CAP_FLAT, 0.5f)
+
+      graphic.SetColor(0.4f, 0.3f, 0.9f)
+      graphic.EllipseFilled(400, 300, 100, 50)
+      graphic.SetColor(0.6f, 0.5f, 0.99f)
+      graphic.EllipseOutline(400, 300, 100, 50, 3)
+
+      
     }
     
     @Override
     def reshape(drawable : GLAutoDrawable, x:Int, y:Int, width:Int, height:Int) = {
     }
 
-    def setColor(r:Float, g:Float, b:Float, a:Float) = {
-      gl.glColor4f(r, g, b, a)
-    }
   }
 
 }
