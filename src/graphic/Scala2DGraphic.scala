@@ -7,12 +7,14 @@ import javax.media.opengl._
 import java.awt.Shape
 import java.awt.geom.Arc2D
 import java.awt.geom.Ellipse2D
-import java.awt.geom.FlatteningPathIterator
 import java.awt.geom.Line2D
 import java.awt.geom.Path2D
 import java.awt.geom.PathIterator
 import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
+import java.awt.font.FontRenderContext
+import java.awt.font.GlyphVector
+import java.awt.Font
 
 class Scala2DGraphic() {
   private var bufferId : Array[Int] = Array(0)
@@ -46,11 +48,11 @@ class Scala2DGraphic() {
   private var startInd:Int = 0
   private var endInd:Int = 0
   val CAP_FLAT = 0
-  val CAP_SQUARE = 1
-  val CAP_ROUND = 2
-  val JOIN_BEVEL = 0
-  val JOIN_MITER = 1
-  val JOIN_ROUND = 2
+  val CAP_SQUARE = 2
+  val CAP_ROUND = 1
+  val JOIN_BEVEL = 2
+  val JOIN_MITER = 0
+  val JOIN_ROUND = 1
   val ARC_OPEN = Arc2D.OPEN
   val ARC_CHORD = Arc2D.CHORD
   val ARC_PIE = Arc2D.PIE
@@ -88,9 +90,9 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float, width:Float, height:Float) = {
+  def strokeRoundRectangle(x:Int, y:Int, w:Int, h:Int, arcw:Float, arch:Float, width:Float, cap:Int, join:Int) = {
     rrect.setRoundRect(x, y, w, h, arcw, arch)
-    createStroke(rrect, width, height)
+    createStroke(rrect, width, cap, join)
   }
 
   def fillRectangle(x:Int, y:Int, w:Int, h:Int) = {
@@ -114,13 +116,25 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeRectangle(x:Int, y:Int, w:Int, h:Int, width:Float, height:Float) = {    
+  def strokeRectangle(x:Int, y:Int, w:Int, h:Int, width:Float, cap:Int, join:Int) = {
     rect.setRect(x, y, w, h)
-    createStroke(rect, width, height)
+    createStroke(rect, width, cap, join)
   }
 
-  def arc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
+  def outlineArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
                  angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
+    arc(x, y, w, h, angleStart, angleExtend, cap, join, width, arcType, true)
+  }
+
+  def fillArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
+                 angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
+    var at = arcType
+    if(at==ARC_OPEN) at = ARC_CHORD
+    arc(x, y, w, h, angleStart, angleExtend, cap, join, width, at, false)
+  }
+
+  private def arc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
+                 angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int, outline:Boolean) = {
     if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = width
     arc2D.setArc(x-w/2, y-h/2, w, h, angleStart, angleExtend, arcType)
     // no visual effect for arc type OPEN
@@ -136,20 +150,22 @@ class Scala2DGraphic() {
     if(arcType != ARC_OPEN){
       endsAtStart = true
       cap_style = CAP_FLAT
-      calcArcOutline(arc2D)
+      calcArcOutline(arc2D, outline)
     } else {
       endsAtStart = false
       join_style = JOIN_BEVEL
       calcFigure(arc2D, true)
     }
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+    if(outline == true)vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+    else
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_FAN, vertsNum)
   }
 
   def strokeArc(x:Float, y:Float, w:Float, h:Float, angleStart:Float,
-      angleExtend:Float, cap:Int, join:Int, width:Float, height:Float, arcType:Int) = {
+      angleExtend:Float, cap:Int, join:Int, width:Float, arcType:Int) = {
         arc2D.setArc(x-w/2, y-h/2, w, h, angleStart, angleExtend, arcType)
-        createStroke(arc2D, width, height)
+        createStroke(arc2D, width, cap, join)
       }
 
   def fillEllipse(x:Int, y:Int, w:Int, h:Int) = {    
@@ -171,9 +187,9 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeEllipse(x:Int, y:Int, w:Int, h:Int, width:Float, height:Float) = {
+  def strokeEllipse(x:Int, y:Int, w:Int, h:Int, width:Float, cap:Int, join:Int) = {
     ellipse.setFrame(x-w/2, y-h/2, w, h)
-    createStroke(ellipse, width, height)
+    createStroke(ellipse, width, cap, join)
   }
 
   def line(x1:Float, y1:Float, x2:Float, y2:Float, cap:Int, width:Float) = {
@@ -191,9 +207,9 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  def strokeLine(x1:Float, y1:Float, x2:Float, y2:Float, cap:Int, width:Float, height:Float) = {
+  def strokeLine(x1:Float, y1:Float, x2:Float, y2:Float, width:Float, cap:Int, join:Int) = {
     line2D.setLine(x1, y1, x2, y2)
-    createStroke(line2D, width, height)
+    createStroke(line2D, width, cap, join)
   }
 
   def fillTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int) = {
@@ -227,14 +243,31 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP , vertsNum)
   }
 
-  def strokeTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int, width:Float, height:Float) = {
+  def strokeTriangle(x1:Int, y1:Int, x2:Int, y2:Int, x3:Int, y3:Int, width:Float, cap:Int, join:Int) = {
     triPath.reset
     triPath.moveTo(x1, y1)
     triPath.lineTo(x2, y2)
     triPath.lineTo(x3, y3)
     triPath.lineTo(x1, y1)
     triPath.closePath
-    createStroke(triPath, width, height)
+    createStroke(triPath, width, cap, join)
+  }
+
+  def charOutline(fontName:String, fontSize:Int, text:Char, x:Int, y:Int) = {
+    var frc:FontRenderContext = new FontRenderContext(null, false, false)
+    val font:Font = new Font(fontName, Font.BOLD, fontSize)
+    var glyph:GlyphVector = font.createGlyphVector(frc, text.toString)
+    var shape = glyph.getOutline
+    join_style = JOIN_MITER
+    cap_style = CAP_FLAT
+    this.width = 1
+    calcFigure(shape, true)
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+    gl.glPushMatrix
+    gl.glTranslatef(x, y, 0)    
+    gl.glScalef(1.0f, -1.0f, 1.0f)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP , vertsNum)
+    gl.glPopMatrix
   }
 
   def pathMoveTo(x:Float, y:Float) = {
@@ -269,117 +302,94 @@ class Scala2DGraphic() {
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
     mainPath.reset
   }
-  def pathDrawStroke(width:Float, height:Float) = {
+  def pathDrawStroke(width:Float, cap:Int, join:Int) = {
     mainPath.closePath
-    createStroke(mainPath, width, height)
-    mainPath.reset
+    createStroke(mainPath, width, cap, join)
+    mainPath.reset    
   }
 
-  private def createStroke(fig:Shape, w:Float, h:Float) = {
-    join_style = JOIN_MITER
-    cap_style = CAP_FLAT
-    endsAtStart = false
-    this.width = w
-    if(this.width<1) this.width = 1
-    if(this.width>10) this.width = 10
-    var H=h
-    if(h<2) H = 2
-    if(h>15) H = 15
-    calcFigure(getStroke(fig, H), true)
+  def setClipRect(x:Int, y:Int, h:Int, w:Int) = {
+    gl.glEnable(GL.GL_STENCIL_TEST)
+    gl.glStencilFunc(GL.GL_ALWAYS, 1, 1)
+    gl.glStencilOp(GL.GL_REPLACE, GL.GL_REPLACE, GL.GL_REPLACE)
+    gl.glColorMask(false, false, false, false)
+    // vbo later when clip area will be more complex
+    gl.glBegin(GL2.GL_QUADS)
+    gl.glVertex2i(x, y)
+    gl.glVertex2i(x+w, y)
+    gl.glVertex2i(x+w, y+h)
+    gl.glVertex2i(x, y+h)
+    gl.glEnd
+    gl.glColorMask(true, true, true, true)
+    //
+    gl.glStencilFunc(GL.GL_EQUAL, 1, 1)
+    gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_KEEP)
+  }
+
+  def deactiveClipArea() = {
+    gl.glDisable(GL.GL_STENCIL_TEST)
+  }
+
+  private def createStroke(fig:Shape, w:Float, cap:Int, join:Int) = {
+    if(width > WIDTH_MIN && width < WIDTH_MAX) this.width = w*2.0f
+    if (join>=0 && join<3)
+      join_style = join
+    else
+      join_style = JOIN_BEVEL
+    if (cap>=0 && cap<3)
+      cap_style = cap
+    else
+      cap_style = CAP_FLAT
+    getStroke(fig, this.width, cap, join)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
   }
 
-  private def getStroke(figure:Shape, height:Float) = {
-
-    var sp = new Path2D.Float
-    var w = height
-    var d:Float=w+1
-    var joinw:Float = 0
-    var joind:Float = 0 
-    var path = new FlatteningPathIterator( figure.getPathIterator(null), 0.001)
-    var lastx:Float=0
-    var lasty:Float=0
-    var normx:Float=0
-    var normy:Float=0
-
-    var inter:Int = 0
+  private def getStroke(figure:Shape, width:Float, cap:Int, join:Int) = {
+    val sp = new Path2D.Float
+    var dash:Array[Float] = Array(8, 10)
+    var stroke = new java.awt.BasicStroke(width, cap, join, 50, dash, 0)
+    var path = stroke.createStrokedShape(figure).getPathIterator(null, 1.0f)
+    var z:Int = 0
     i=0
     while(!path.isDone){      
       path.currentSegment(point) match {
       case java.awt.geom.PathIterator.SEG_CUBICTO => println("cubic to")
       case java.awt.geom.PathIterator.SEG_QUADTO => println("quad to")
       case java.awt.geom.PathIterator.SEG_MOVETO => {
-          sp.moveTo(point(0), point(1))
-          //inter+=1
-          lastx = point(0)
-          lasty = point(1)
-          //tmpverts(i) = lastx
-          //tmpverts(i+1) = lasty          
-          //i+=2
+          z = 0
+          tmpverts(z) = point(0)
+          tmpverts(z+1) = point(1)
+          z+=2
         }
       case java.awt.geom.PathIterator.SEG_LINETO => {
-            var d = scala.Math.sqrt((point(0)-lastx)*(point(0)-lastx) +
-                               (point(1)-lasty)*(point(1)-lasty)).floatValue
-            if(d+joinw<w){
-              joinw+=d
-              lastx = point(0)
-              lasty = point(1)              
-              //tmpverts(i) = point(0)
-              //tmpverts(i+1) = point(1)
-              //i+=2              
-            } else {
-              if(joinw>0){                
-                  normx = (point(0)-lastx)/d
-                  normy = (point(1)-lasty)/d
-                  joind = w - joinw
-                  lastx = lastx + joind*normx
-                  lasty = lasty + joind*normy
-                  d = d - joind
-                  joinw = 0
-                  joind = 0
-                  //tmpverts(i) = lastx
-                  //tmpverts(i+1) = lasty
-                  //i+=2
-                if(inter%2==0) sp.lineTo(lastx, lasty)
-                else sp.moveTo(lastx, lasty)
-                inter+=1
-              }
-              
-              while(d>w){
-                if(d>w){
-                d = scala.Math.sqrt((point(0)-lastx)*(point(0)-lastx) +
-                                    (point(1)-lasty)*(point(1)-lasty)).floatValue
-                  normx = (point(0)-lastx)/d
-                  normy = (point(1)-lasty)/d
-                    lastx = lastx + w*normx
-                    lasty = lasty + w*normy                    
-                    //tmpverts(i) = lastx
-                    //tmpverts(i+1) = lasty
-                    //i+=2
-                if(inter%2==0) sp.lineTo(lastx, lasty)
-                else sp.moveTo(lastx, lasty)
-                inter+=1
-                } else {
-                  if(joinw<=0) {
-                    joinw = w - d
-                    joind = w - d
-                    lastx = point(0)
-                    lasty = point(1)
-                    //tmpverts(i) = point(0)
-                    //tmpverts(i+1) = point(1)
-                    //i+=2
-                    }
-                }
-              }
-              
-            }
+          tmpverts(z) = point(0)
+          tmpverts(z+1) = point(1)
+          z+=2
         }
       case java.awt.geom.PathIterator.SEG_CLOSE => {
+          var st = 0
+          var end = z
+          while(st<z) {
+            verts(i) = tmpverts(st)
+            verts(i+1) = tmpverts(st+1)
+            i+=2
+            st+=2
+            verts(i) = tmpverts(end-2)
+            verts(i+1) = tmpverts(end-1)
+            i+=2
+            end-=2
+          }
+          verts(i) = verts(i-2)
+          verts(i+1) = verts(i-1)
+          i+=2
       }
       }
       path.next
     }
+    vertsNum = i/2
+    i=0
+    ind = 0
     sp
   }
 
@@ -452,43 +462,43 @@ class Scala2DGraphic() {
     }
   }
 
-  private def calcArcOutline(figure:Shape) = {
+  private def calcArcOutline(figure:Shape, outline:Boolean) = {
     var path = figure.getPathIterator(null, 1.0f)
-    var startX:Float=0
-    var startY:Float=0
-    i=0
+    
+    i=2
 
     while(!path.isDone){
       var t = path.currentSegment(point)
       t match {
       case java.awt.geom.PathIterator.SEG_CUBICTO => println("cubic to")
       case java.awt.geom.PathIterator.SEG_QUADTO => println("quad to")
-      case java.awt.geom.PathIterator.SEG_MOVETO => {
+      case java.awt.geom.PathIterator.SEG_MOVETO => {          
           tmpverts(i) = point(0)
-          tmpverts(i+1) = point(1)
-          startX = point(0)
-          startY = point(1)
+          tmpverts(i+1) = point(1)          
           i+=2
         }
       case java.awt.geom.PathIterator.SEG_LINETO => {
           tmpverts(i) = point(0)
           tmpverts(i+1) = point(1)
-          i+=2
+          i+=2          
         }
-      case java.awt.geom.PathIterator.SEG_CLOSE => {
-          tmpverts(i) = startX
-          tmpverts(i+1) = startY
-          i+=2
+      case java.awt.geom.PathIterator.SEG_CLOSE => {          
+          tmpverts(0) = point(0)
+          tmpverts(1) = point(1)
+          i-=2
       }
       }
       path.next
     }
 
+    tmpverts.copyToArray(verts)
     endInd = i
     vertsNumTmp = i/2
+    vertsNum = i/2
     i=0
     ind = 0
 
+if(outline == true) {
       var prevt = 0
       path = figure.getPathIterator(null, 1.0f)
       while(!path.isDone){
@@ -524,7 +534,8 @@ class Scala2DGraphic() {
         path.next
       }
       endCapOrCapClose(startInd, false)
-      vertsNum = i/2    
+      vertsNum = i/2
+}
   }
 
   private def lineto(ind:Int) = {
@@ -735,7 +746,6 @@ class Scala2DGraphic() {
   }
 
   private def endCapOrCapClose(startInd:Int, implicitClose:Boolean) = {
-
     if(endsAtStart){
       join(startInd+2)
     } else if(implicitClose) {
@@ -782,21 +792,20 @@ class Scala2DGraphic() {
   }
 
   def setColor(r:Float, g:Float, b:Float) = {
-    gl.glColor3f(r, g, b)
+    gl.glColor4f(r, g, b, 1.0f)
   }
   def setColor(r:Float, g:Float, b:Float, a:Float) = {
     gl.glColor4f(r, g, b, a)
   }
   def clearCanvas(r:Float, g:Float, b:Float) = {
     gl.glClearColor(r, g, b, 1.0f)
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
   }
   def clearCanvas(r:Float, g:Float, b:Float, a:Float) = {
     gl.glClearColor(r, g, b, a)
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
   }
   def deinit() = {
     gl.glDeleteBuffers(1, bufferId, 0)
   }
 }
-

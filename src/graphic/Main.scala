@@ -3,6 +3,7 @@
 package graphic
 
 import com.jogamp.opengl.util.Animator
+import com.jogamp.opengl.util.FPSAnimator
 import java.awt.BorderLayout
 import javax.media.opengl.GL
 import javax.media.opengl.GL2
@@ -18,11 +19,17 @@ import javax.swing.JFrame
 object Main extends JFrame {
   var gl:GL2 = null
   val graphic:Scala2DGraphic = new Scala2DGraphic
+  var text:FontText = new FontText
+
+  var animY1:Double = 0.01  
 
   def main(args: Array[String]): Unit = {
     val profile : GLProfile = GLProfile.getDefault()
     val caps : GLCapabilities = new GLCapabilities(profile)
-    caps.setNumSamples(8)
+    caps.setHardwareAccelerated(true)
+    caps.setSampleBuffers(true)
+    caps.setNumSamples(4)
+    caps.setStencilBits(8)
     println(caps.toString)
     val canvas : GLCanvas = new GLCanvas(caps)
     val el : OGLEventListener = new OGLEventListener
@@ -32,30 +39,43 @@ object Main extends JFrame {
     setSize(500, 500)
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
     canvas.requestFocusInWindow()
-    setVisible(true)
-
-    val anim : Animator = new Animator(canvas)
-//    anim.start
+    setVisible(true)   
+    
+    val anim : FPSAnimator = new FPSAnimator(canvas, 80)
+    anim.start
   }
 
   class OGLEventListener extends GLEventListener{
       @Override
       def init(drawable : GLAutoDrawable) = {
-      gl = drawable.getGL().getGL2;
-      val glu:GLU = new GLU();
-      gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
-      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-      gl.glViewport(0, 0, 500, 500);
-      gl.getGL2().glMatrixMode(GLMatrixFunc.GL_PROJECTION);
-      gl.getGL2().glLoadIdentity();
-      glu.gluOrtho2D(0.0, 500.0, 0.0, 500.0);
+      gl = drawable.getGL().getGL2
+      val glu:GLU = new GLU()
+      gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f)
+      gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
+      gl.glViewport(0, 0, 500, 500)
+      gl.getGL2().glMatrixMode(GLMatrixFunc.GL_PROJECTION)
+      gl.getGL2().glLoadIdentity()
+      glu.gluOrtho2D(0.0, 500.0, 0.0, 500.0)
+      gl.glClearStencil(0)
 
       if( !gl.isExtensionAvailable("GL_ARB_vertex_buffer_object") )
         println("GL_ARB_vertex_buffer_object extension is not available")
 
+      gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
+      gl.getGL2().glLoadIdentity()
+
+      gl.glEnable(GL.GL_MULTISAMPLE)
+      //gl.glDisable(GL.GL_DEPTH_TEST)
+      //gl.glBlendFunc(GL.GL_SRC_ALPHA_SATURATE, GL.GL_ONE)
+      //gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+      //gl.glEnable(GL.GL_BLEND)
+      //gl.glEnable(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH)
+      //gl.glHint(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH_HINT, GL.GL_NICEST)
+
       gl.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
 
       graphic.init(gl)
+      text.createFontText(gl, "Times New Roman", text.BOLD, 48, true)
     }
 
     @Override
@@ -65,8 +85,7 @@ object Main extends JFrame {
 
     @Override
     def display(drawable : GLAutoDrawable) = {
-
-      //gl.glEnable(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH)
+      
       graphic.clearCanvas(1, 1, 1)
 /*
       graphic.setColor(0, 0, 1)
@@ -89,6 +108,7 @@ object Main extends JFrame {
       graphic.setColor(0, 0, 0)
       graphic.line(50, 320, 300, 320, graphic.CAP_FLAT, 0.5f)
 */
+/*
       graphic.setColor(0.3f, 0.2f, 0.7f)
       graphic.pathMoveTo(50, 50)
       graphic.pathLineTo(150, 250)
@@ -108,22 +128,40 @@ object Main extends JFrame {
       graphic.pathLineTo(10, 100)
       graphic.pathCurveTo(300, 100, 200, 300, 250, 00)
       graphic.pathLineTo(400, 300)
-      graphic.pathQuadTo(100, 400, 200, 500)
-      graphic.pathDrawStroke(4, 4)
+      graphic.pathQuadTo(100, 400, 200, 500)      
+      graphic.pathDrawStroke(10, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
 
       graphic.setColor(0.4f, 0.3f, 0.9f)
       graphic.fillEllipse(400, 300, 100, 50)
       graphic.setColor(0.6f, 0.5f, 0.99f)
       graphic.outlineEllipse(400, 300, 100, 50, 3)
 
-/*
+      
+      text.setTextColor(1.0f, 0.5f, 0.3f, 0.9f)
+//      graphic.setClipRect(250, 200, 100, 100)
+      text.setTextAnchors(text.ANCH_MID, text.ANCH_MID)      
+      text.drawText("I love Scala", 200, 200, 90)
+//      graphic.deactiveClipArea
+
+
       graphic.setColor(0, 0, 1)
       graphic.outlineRectangle(100, 350, 200, 50, graphic.JOIN_ROUND, 10)
-      
+*/
+      graphic.setClipRect(50, 60, 40, 200)
       graphic.setColor(0.9f, 0.01f, 0.01f)
-      graphic.arc(150, 380, 100, 100, 90, 270,
-                         graphic.CAP_ROUND, graphic.JOIN_ROUND, 8, graphic.ARC_PIE)
+      graphic.outlineArc(150, 80, 100, 100, 90, 270,
+                  graphic.CAP_ROUND, graphic.JOIN_ROUND, 8, graphic.ARC_CHORD)
 
+
+      graphic.setColor(0.1f, 0.1f, 0.1f)
+      graphic.strokeArc(150, 80, 100, 100, 90, 270,
+                        graphic.CAP_FLAT, graphic.JOIN_ROUND, 8, graphic.ARC_CHORD)
+
+      graphic.setColor(0.8f, 0.8f, 0.8f)
+      graphic.fillArc(150, 80, 85, 85, 90, 270,
+                      graphic.CAP_FLAT, graphic.JOIN_ROUND, 8, graphic.ARC_OPEN)
+      graphic.deactiveClipArea
+/*
       graphic.setColor(0.9f, 0.9f, 0.1f)
       graphic.fillRoundRectangle(300, 300, 100, 130, 14, 14)
       graphic.setColor(0.9f, 0.9f, 0.1f)
@@ -131,10 +169,19 @@ object Main extends JFrame {
 */
       
       graphic.setColor(0.0f, 0.0f, 0.01f)
-      graphic.strokeEllipse(200, 200, 100, 200, 4, 4)
-      graphic.strokeRoundRectangle(290, 290, 120, 150, 30, 30, 5, 5)
-      graphic.strokeRectangle(100, 350, 200, 50, 5, 5)
-                  
+//      graphic.strokeEllipse(200, 200, 100, 200, 10, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
+      graphic.strokeRoundRectangle(290, 290, 120, 150, 30, 30, 4, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
+//      graphic.strokeRectangle(100, 350, 200, 50, 10, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
+
+      graphic.charOutline("Times New Roman", 64, 'A', 100, 400)
+      text.setTextColor(1.0f, 0.5f, 0.3f, 0.9f)
+      animY1 +=0.1      
+      text.setTextCurveParam(00, 100, 500, 100, 150, 
+                             200+(Math.sin(animY1)*90.0).intValue,
+                             300,
+                             -50+(Math.sin(animY1)* -90.0).intValue)
+      text.drawShapeText(" I  LOVE  SCALA  2.8 ")
+      
     }
 
     @Override
