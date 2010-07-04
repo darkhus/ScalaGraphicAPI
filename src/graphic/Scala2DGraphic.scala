@@ -66,6 +66,8 @@ class Scala2DGraphic() {
   val WIDTH_MIN = 0.25
   val WIDTH_MAX = 20
 
+  val tess = new Tesselator
+
   def init(gl2:GL2) = {
     gl = gl2
     vbo.init(gl, bufferId, verts, bufferData, floatSize)
@@ -300,12 +302,31 @@ class Scala2DGraphic() {
     calcFigure(mainPath, true)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
     vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
-    mainPath.reset
+    //mainPath.reset
   }
-  def pathDrawStroke(width:Float, cap:Int, join:Int) = {
+  def pathDrawStroke(cap:Int, join:Int, width:Float) = {
     mainPath.closePath
     createStroke(mainPath, width, cap, join)
     mainPath.reset    
+  }
+  def pathDrawFill() = {
+    tessFigure(mainPath)
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+  }
+  def pathClipArea() = {
+    gl.glEnable(GL.GL_STENCIL_TEST)
+    gl.glStencilFunc(GL.GL_ALWAYS, 1, 1)
+    gl.glStencilOp(GL.GL_REPLACE, GL.GL_REPLACE, GL.GL_REPLACE)
+    gl.glColorMask(false, false, false, false)
+
+    tessFigure(mainPath)
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+
+    gl.glColorMask(true, true, true, true)
+    gl.glStencilFunc(GL.GL_EQUAL, 1, 1)
+    gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_KEEP)
   }
 
   def setClipRect(x:Int, y:Int, h:Int, w:Int) = {
@@ -313,21 +334,107 @@ class Scala2DGraphic() {
     gl.glStencilFunc(GL.GL_ALWAYS, 1, 1)
     gl.glStencilOp(GL.GL_REPLACE, GL.GL_REPLACE, GL.GL_REPLACE)
     gl.glColorMask(false, false, false, false)
-    // vbo later when clip area will be more complex
+    
     gl.glBegin(GL2.GL_QUADS)
     gl.glVertex2i(x, y)
     gl.glVertex2i(x+w, y)
     gl.glVertex2i(x+w, y+h)
     gl.glVertex2i(x, y+h)
     gl.glEnd
+
     gl.glColorMask(true, true, true, true)
-    //
     gl.glStencilFunc(GL.GL_EQUAL, 1, 1)
     gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_KEEP)
   }
 
   def deactiveClipArea() = {
     gl.glDisable(GL.GL_STENCIL_TEST)
+  }
+/*
+  private def tess() = {
+    var s1 = new java.awt.geom.GeneralPath
+    s1.moveTo(10, 200)
+    s1.curveTo(50, 450, 180, -50, 290, 200)
+    s1.curveTo(340, 500, 450, -50, 10, 200)//480, 300)
+    //s1.lineTo(500, 500)
+    var area = new java.awt.geom.Area(s1)
+
+    cap_style = CAP_FLAT
+    join_style = JOIN_BEVEL
+    endsAtStart = false
+    tessFigure2(area, true)
+    bufferData = vbo.mapBuffer(gl, bufferId, verts)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+//    vbo.drawBuffer(gl, GL.GL_POINTS, vertsNum)
+  }
+*/
+  /*
+  // current start
+  private var cs = 0
+
+  private def rectTran(st:Int, end:Int) = {
+    cs = st
+    val intersection = false
+    if(intersection)
+      rectTran(st+1, end)
+    else {
+          var st_t = rs
+          var end_t = end
+          while(st_t < end_t){ // && f==1) {
+            verts(i) = tmpverts(st)
+            verts(i+1) = tmpverts(st+1)
+            i+=2
+            st_t+=2
+            verts(i) = tmpverts(end_t-2)
+            verts(i+1) = tmpverts(end_t-1)
+            i+=2
+            end_t-=2
+          }
+          // close triangel strip
+          verts(i) = verts(i-2)
+          verts(i+1) = verts(i-1)
+          i+=2
+    }
+  }
+*/
+
+  private def tessFigure(figure:Shape) = {
+    //var area = new java.awt.geom.Area(figure)
+    val path = figure.getPathIterator(null, 1.0) //area.getPathIterator(null, 1.0)
+    tess.setPathRule(path.getWindingRule)
+    tess.startTessPolygon
+    tess.startTessContour
+    var f = 0
+    i=0
+    var z:Int = 0
+    while(!path.isDone){
+      var t = path.currentSegment(point)
+      t match {
+      case java.awt.geom.PathIterator.SEG_CUBICTO => println("cubic to")
+      case java.awt.geom.PathIterator.SEG_QUADTO => println("quad to")
+      case java.awt.geom.PathIterator.SEG_MOVETO => {
+          //tess.startTessContour
+          tess.addVertex(point(0), point(1))
+        }
+      case java.awt.geom.PathIterator.SEG_LINETO => {
+          tess.addVertex(point(0), point(1))
+        }
+      case java.awt.geom.PathIterator.SEG_CLOSE => {
+          //tess.endTessContour
+      }
+      }
+      path.next
+    }
+    tess.endTessContour
+    tess.endTessPolygon
+    
+    i = tess.i    
+    endInd = i
+    vertsNumTmp = i/2
+    i=0
+    ind = 0
+    tess.vertsData.copyToArray(verts)
+    vertsNum = vertsNumTmp
   }
 
   private def createStroke(fig:Shape, w:Float, cap:Int, join:Int) = {
@@ -370,7 +477,7 @@ class Scala2DGraphic() {
       case java.awt.geom.PathIterator.SEG_CLOSE => {
           var st = 0
           var end = z
-          while(st<z) {
+          while(st < end) {
             verts(i) = tmpverts(st)
             verts(i+1) = tmpverts(st+1)
             i+=2

@@ -19,7 +19,10 @@ import javax.swing.JFrame
 object Main extends JFrame {
   var gl:GL2 = null
   val graphic:Scala2DGraphic = new Scala2DGraphic
+
   var text:FontText = new FontText
+  var image:ImageRender = new ImageRender
+  var shader:Shader = new Shader
 
   var animY1:Double = 0.01  
 
@@ -30,6 +33,8 @@ object Main extends JFrame {
     caps.setSampleBuffers(true)
     caps.setNumSamples(4)
     caps.setStencilBits(8)
+    caps.setDoubleBuffered(true)
+    println(caps.getSampleBuffers)
     println(caps.toString)
     val canvas : GLCanvas = new GLCanvas(caps)
     val el : OGLEventListener = new OGLEventListener
@@ -47,28 +52,24 @@ object Main extends JFrame {
 
   class OGLEventListener extends GLEventListener{
       @Override
-      def init(drawable : GLAutoDrawable) = {
+    def init(drawable : GLAutoDrawable) = {
       gl = drawable.getGL().getGL2
       val glu:GLU = new GLU()
-      gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f)
+      gl.glClearColor(0.7f, 0.7f, 0.7f, 0.0f)
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
       gl.glViewport(0, 0, 500, 500)
       gl.getGL2().glMatrixMode(GLMatrixFunc.GL_PROJECTION)
       gl.getGL2().glLoadIdentity()
       glu.gluOrtho2D(0.0, 500.0, 0.0, 500.0)
       gl.glClearStencil(0)
-
-      if( !gl.isExtensionAvailable("GL_ARB_vertex_buffer_object") )
-        println("GL_ARB_vertex_buffer_object extension is not available")
-
       gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
       gl.getGL2().glLoadIdentity()
 
       gl.glEnable(GL.GL_MULTISAMPLE)
       //gl.glDisable(GL.GL_DEPTH_TEST)
       //gl.glBlendFunc(GL.GL_SRC_ALPHA_SATURATE, GL.GL_ONE)
-      //gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
-      //gl.glEnable(GL.GL_BLEND)
+      gl.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)      
+      gl.glEnable(GL.GL_BLEND)
       //gl.glEnable(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH)
       //gl.glHint(javax.media.opengl.GL2GL3.GL_POLYGON_SMOOTH_HINT, GL.GL_NICEST)
 
@@ -76,17 +77,17 @@ object Main extends JFrame {
 
       graphic.init(gl)
       text.createFontText(gl, "Times New Roman", text.BOLD, 48, true)
+      image.loadImage(gl, "CoffeeBean.bmp", "bmp")
+      shader.buildShader(gl)
+      shader.compileShaders(null, null)
     }
 
     @Override
-    def dispose(drawable : GLAutoDrawable) = {
-
-    }
+    def dispose(drawable : GLAutoDrawable) = {}
 
     @Override
-    def display(drawable : GLAutoDrawable) = {
-      
-      graphic.clearCanvas(1, 1, 1)
+    def display(drawable : GLAutoDrawable) = {      
+      graphic.clearCanvas(1, 1, 1)      
 /*
       graphic.setColor(0, 0, 1)
       graphic.outlineRectangle(100, 350, 200, 50, graphic.JOIN_MITER, 10)
@@ -147,6 +148,7 @@ object Main extends JFrame {
       graphic.setColor(0, 0, 1)
       graphic.outlineRectangle(100, 350, 200, 50, graphic.JOIN_ROUND, 10)
 */
+/*
       graphic.setClipRect(50, 60, 40, 200)
       graphic.setColor(0.9f, 0.01f, 0.01f)
       graphic.outlineArc(150, 80, 100, 100, 90, 270,
@@ -161,13 +163,14 @@ object Main extends JFrame {
       graphic.fillArc(150, 80, 85, 85, 90, 270,
                       graphic.CAP_FLAT, graphic.JOIN_ROUND, 8, graphic.ARC_OPEN)
       graphic.deactiveClipArea
+*/
 /*
       graphic.setColor(0.9f, 0.9f, 0.1f)
       graphic.fillRoundRectangle(300, 300, 100, 130, 14, 14)
       graphic.setColor(0.9f, 0.9f, 0.1f)
       graphic.outlineRoundRectangle(290, 290, 120, 150, 30, 30, 5)
 */
-      
+  
       graphic.setColor(0.0f, 0.0f, 0.01f)
 //      graphic.strokeEllipse(200, 200, 100, 200, 10, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
       graphic.strokeRoundRectangle(290, 290, 120, 150, 30, 30, 4, graphic.CAP_FLAT, graphic.JOIN_BEVEL)
@@ -175,18 +178,42 @@ object Main extends JFrame {
 
       graphic.charOutline("Times New Roman", 64, 'A', 100, 400)
       text.setTextColor(1.0f, 0.5f, 0.3f, 0.9f)
-      animY1 +=0.1      
-      text.setTextCurveParam(00, 100, 500, 100, 150, 
-                             200+(Math.sin(animY1)*90.0).intValue,
-                             300,
-                             -50+(Math.sin(animY1)* -90.0).intValue)
-      text.drawShapeText(" I  LOVE  SCALA  2.8 ")
       
+      text.setTextCurveParam(00, 100, 500, 100, 150, 
+                             200+(Math.sin(animY1*5)*90.0).intValue,
+                             300,
+                             -50+(Math.sin(animY1*5)* -90.0).intValue)   
+      text.drawShapeText(" I  LOVE  SCALA  2.8 ")
+
+      // 3.7, 5.16
+      animY1 +=0.01f            
+      
+        graphic.pathMoveTo(200+(Math.sin(animY1)* -150).intValue, 200+(Math.cos(animY1)* 80).intValue)
+        graphic.pathCurveTo(350+(Math.sin(animY1)*50).intValue, 350+(Math.cos(animY1)* -150).intValue,
+                            200+(Math.sin(animY1)* 300).intValue, 200+(Math.cos(animY1)* 300).intValue,
+                            300+(Math.sin(animY1)* -300).intValue, 300+(Math.cos(animY1)* -300).intValue)
+        graphic.pathQuadTo(200+(Math.sin(animY1)* -150).intValue, 200+(Math.cos(animY1)* 80).intValue,
+                           200+(Math.sin(animY1)* -50).intValue, 200+(Math.cos(animY1)*50).intValue)
+
+//      graphic.setColor(0.8f, 0.2f, 0.2f)
+//      graphic.pathDrawFill
+      graphic.setColor(0.2f, 0.8f, 0.2f)
+      graphic.pathDraw(graphic.CAP_ROUND, graphic.JOIN_ROUND, 3.0f)
+//      graphic.pathReset
+      //graphic.setColor(0,0,0)      
+      //graphic.setClipRect(150, 150, 100, 100)
+
+      graphic.pathClipArea
+      graphic.pathReset      
+      image.drawImage(00, 00, 500, 500)
+      graphic.deactiveClipArea
+
+      shader.applyShader
+      graphic.fillEllipse(50, 50, 90, 30)
+      shader.deactiveShader
     }
 
     @Override
-    def reshape(drawable : GLAutoDrawable, x:Int, y:Int, width:Int, height:Int) = {
-    }
-
+    def reshape(drawable : GLAutoDrawable, x:Int, y:Int, width:Int, height:Int) = {}
   }
 }
