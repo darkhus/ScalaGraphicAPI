@@ -5,13 +5,7 @@ import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import javax.media.opengl._
 import java.awt.Shape
-import java.awt.geom.Arc2D
-import java.awt.geom.Ellipse2D
-import java.awt.geom.Line2D
-import java.awt.geom.Path2D
-import java.awt.geom.PathIterator
-import java.awt.geom.Rectangle2D
-import java.awt.geom.RoundRectangle2D
+import java.awt.geom._
 import java.awt.font.FontRenderContext
 import java.awt.font.GlyphVector
 import java.awt.Font
@@ -19,10 +13,10 @@ import java.awt.Font
 class Scala2DGraphic() {
   private var bufferId : Array[Int] = Array(0)
   var floatSize : Int = 4
-  private var bufferData : FloatBuffer = FloatBuffer.allocate(3620)
+  private var bufferData : FloatBuffer = FloatBuffer.allocate(1024)
   private var bufferByte : ByteBuffer = null
-  private var verts : Array[Float] = new Array[Float](3620)
-  private var tmpverts : Array[Float] = new Array[Float](3620)
+  private var verts : Array[Float] = new Array[Float](1024)
+  private var tmpverts : Array[Float] = new Array[Float](1024)
   var gl : GL2 = null
   private var vbo : VBuffer = new VBuffer
   private var vertsNumTmp:Int = 0
@@ -350,53 +344,6 @@ class Scala2DGraphic() {
   def deactiveClipArea() = {
     gl.glDisable(GL.GL_STENCIL_TEST)
   }
-/*
-  private def tess() = {
-    var s1 = new java.awt.geom.GeneralPath
-    s1.moveTo(10, 200)
-    s1.curveTo(50, 450, 180, -50, 290, 200)
-    s1.curveTo(340, 500, 450, -50, 10, 200)//480, 300)
-    //s1.lineTo(500, 500)
-    var area = new java.awt.geom.Area(s1)
-
-    cap_style = CAP_FLAT
-    join_style = JOIN_BEVEL
-    endsAtStart = false
-    tessFigure2(area, true)
-    bufferData = vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
-//    vbo.drawBuffer(gl, GL.GL_POINTS, vertsNum)
-  }
-*/
-  /*
-  // current start
-  private var cs = 0
-
-  private def rectTran(st:Int, end:Int) = {
-    cs = st
-    val intersection = false
-    if(intersection)
-      rectTran(st+1, end)
-    else {
-          var st_t = rs
-          var end_t = end
-          while(st_t < end_t){ // && f==1) {
-            verts(i) = tmpverts(st)
-            verts(i+1) = tmpverts(st+1)
-            i+=2
-            st_t+=2
-            verts(i) = tmpverts(end_t-2)
-            verts(i+1) = tmpverts(end_t-1)
-            i+=2
-            end_t-=2
-          }
-          // close triangel strip
-          verts(i) = verts(i-2)
-          verts(i+1) = verts(i-1)
-          i+=2
-    }
-  }
-*/
 
   private def tessFigure(figure:Shape) = {
     //var area = new java.awt.geom.Area(figure)
@@ -449,7 +396,7 @@ class Scala2DGraphic() {
       cap_style = CAP_FLAT
     getStroke(fig, this.width, cap, join)
     bufferData = vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum) 
   }
 
   private def getStroke(figure:Shape, width:Float, cap:Int, join:Int) = {
