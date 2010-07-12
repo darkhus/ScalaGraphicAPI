@@ -9,56 +9,56 @@ import javax.media.opengl.glu.gl2.GLUgl2
 import tesswarp.Tess
 
 class Tesselator extends Tess(new GLUgl2) {
-  var vertsData : Array[Float] = new Array[Float](8192)
-  var tempVertsData : Array[Float] = new Array[Float](8192)
-  var glu = new GLUgl2
-  var mode = 0
-  var f = 0 // temporary index
+  var vertsData = new Array[Float](8192)
+  private var tempVertsData = new Array[Float](8192)
+  private var glu = new GLUgl2
+  private var mode = 0
+  private var f = 0 // temporary index
   var i = 0 // index for aray triangle strips output
   
-  def startTessPolygon() = {
+  def startTessPolygon() {
     this.startTesselationPoly
-    i=0
-    f=0
+    i = 0
+    f = 0
   }
 
-  def endTessPolygon() = {
+  def endTessPolygon() {
     this.endTesselationPoly
   }
 
-  def startTessContour() = {
+  def startTessContour() {
     this.startTesselationContour
   }
 
-  def endTessContour() = {
+  def endTessContour() {
     this.endTesselationContour
   }
 
-  def addVertex(x:Float, y:Float) = {
-    val p:Array[Double] = Array(x.doubleValue, y.doubleValue, 0 )
+  def addVertex(x: Float, y: Float) {
+    val p: Array[Double] = Array(x.toDouble, y.toDouble, 0 )
     this.addVert(p)
   }
 
-  def setPathRule(rule:Int) = {
+  def setPathRule(rule: Int) {
       rule match {
       case PathIterator.WIND_EVEN_ODD =>
-        this.setWindingRule(GLU.GLU_TESS_WINDING_ODD)
+        this.setRule(GLU.GLU_TESS_WINDING_ODD)
       case PathIterator.WIND_NON_ZERO =>
-        this.setWindingRule(GLU.GLU_TESS_WINDING_NONZERO)
-    }
+        this.setRule(GLU.GLU_TESS_WINDING_NONZERO)
+    }    
   }
 
-  def setRule(rule:Int) = {
+  def setRule(rule: Int) {
     this.setWindingRule(rule)
   }
 
   override
-  def begin(mode:Int) = {
+  def begin(mode: Int) {
     this.mode = mode
   }
   
   override
-  def end() = {
+  def end() {
     // triangle fan - 6
     // triangle strip - 5
     // triangles - 4
@@ -137,10 +137,10 @@ class Tesselator extends Tess(new GLUgl2) {
   }
   
   override
-  def vertex(vertexData:Any) = {
+  def vertex(vertexData:Any) {
     var data:Array[Double] = vertexData.asInstanceOf[Array[Double]]
-    tempVertsData(f) = data(0).floatValue
-    tempVertsData(f+1) = data(1).floatValue
+    tempVertsData(f) = data(0).toFloat
+    tempVertsData(f+1) = data(1).toFloat
     f+=2
   }
 }

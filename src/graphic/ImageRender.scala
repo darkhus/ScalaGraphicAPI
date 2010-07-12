@@ -18,20 +18,20 @@ class ImageRender {
   val FILTER_ANISOTROPIC = -1
   private var texFilter = FILTER_LINEAR
   private var env_mode = MODE_MODULATE
-  private var gl:GL2 = null
-  private var img:Texture = null  
+  private var gl: GL2 = null
+  private var img: Texture = null
 
-  def loadImage(gl:GL2, name:String, sufix:String) = {
+  def loadImage(gl: GL2, name: String, sufix: String): Unit = {
     this.gl = gl
     if(gl==null) {
-      System.err.print("gl object is null\n")
+      error("gl object is null\n")
     } else {
-      val f:InputStream = getClass.getResourceAsStream(name)
+      val f: InputStream = getClass.getResourceAsStream(name)
       try{
         img = TextureIO.newTexture(f, true, sufix)
       } catch {
         case ioe: IOException => {
-            System.err.println("can't find file "+name+"\n"+ioe.toString)
+            error("can't find file "+name+"\n"+ioe.toString)
         }
         case e: Exception => { println(e) }
       }
@@ -43,12 +43,10 @@ class ImageRender {
     this.texFilter = texFilter
   }
 
-  def drawImage(x:Int, y:Int, h:Int, w:Int) = {
+  def drawImage(x: Int, y: Int, h: Int, w: Int): Unit = {
     img.enable
     img.bind
-
     gl.glTexEnvi(GL2ES1.GL_TEXTURE_ENV, GL2ES1.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE)//this.env_mode)
-
     this.texFilter match {
       case FILTER_NN => {
           gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, texFilter)
@@ -72,18 +70,17 @@ class ImageRender {
             gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
           }
       }
-    }
-    
+    }        
     gl.glBegin(GL2.GL_QUADS)
-    gl.glTexCoord2f(img.getImageTexCoords.left, img.getImageTexCoords.bottom)
-    gl.glVertex2f(x, y)
-    gl.glTexCoord2f(img.getImageTexCoords.right, img.getImageTexCoords.bottom)
-    gl.glVertex2f(x+h, y)
-    gl.glTexCoord2f(img.getImageTexCoords.right, img.getImageTexCoords.top)
-    gl.glVertex2f(x+h, y+w)
     gl.glTexCoord2f(img.getImageTexCoords.left, img.getImageTexCoords.top)
+    gl.glVertex2f(x, y)
+    gl.glTexCoord2f(img.getImageTexCoords.right, img.getImageTexCoords.top)
+    gl.glVertex2f(x+h, y)
+    gl.glTexCoord2f(img.getImageTexCoords.right, img.getImageTexCoords.bottom)
+    gl.glVertex2f(x+h, y+w)
+    gl.glTexCoord2f(img.getImageTexCoords.left, img.getImageTexCoords.bottom)
     gl.glVertex2f(x, y+w)
-    gl.glEnd
-    img.disable    
+    gl.glEnd    
+    img.disable
   }
 }

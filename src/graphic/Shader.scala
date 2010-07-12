@@ -9,37 +9,37 @@ import javax.media.opengl._
 
 class Shader {
   
-  var v = 0
-  var f = 0
-  var program:Int = 0
-  var gl:GL2 = null
+  private var v = 0
+  private var f = 0
+  private var program: Int = 0
+  private var gl: GL2 = null
   
-  val vs =
+  private val vs =
     "void main(void){"+
     "gl_Position = ftransform();}"
   
-  val fs =
+  private val fs =
     "void main(void){"+
     "gl_FragColor = vec4(0.0,0.0,0.0,1.0);}"
   
-  def buildShader(gl:GL2) = {
+  def buildShader(gl: GL2): Unit = {
     this.gl = gl
     v = gl.glCreateShader(GL2ES2.GL_VERTEX_SHADER)
     f = gl.glCreateShader(GL2ES2.GL_FRAGMENT_SHADER)
     program = gl.glCreateProgram
   }
 
-  def compileShadersFromFile(fragName:String, vertName:String) = {
+  def compileShadersFromFile(fragName: String, vertName: String): Unit = {
       try{
         val fragString = inputStreamToString(getClass.getResourceAsStream(fragName))
         val vertString = inputStreamToString(getClass.getResourceAsStream(vertName))
-        this.compileShaders(fragString, vertString)
+        this.compileShadersFromString(fragString, vertString)
       } catch {
         case e: Exception => { System.err.println("can't find shader file") } 
       }
   }
 
-  def compileShaders(fragSrc:String, vertSrc:String) = {    
+  def compileShadersFromString(fragSrc: String, vertSrc: String): Unit = {
     var status:Array[Int] = new Array(1)
 
     if(fragSrc != null) {
@@ -71,15 +71,59 @@ class Shader {
     //gl.glUseProgram(program)
   }
   
-  def applyShader() = {
+  def applyShader(): Unit = {
     gl.glUseProgram(program)
   }
   
-  def deactiveShader() = {
+  def deactiveShader(): Unit = {
     gl.glUseProgram(0)
   }
 
-  def destroyShader() = {
+  def setUniformParameter1(name: String, value: Any): Unit = {
+    val loc = gl.glGetUniformLocation(this.program, name)
+    if(loc == -1) println("No such uniform parameter: "+name)
+    else {
+      if(value.isInstanceOf[Float])
+        gl.glUniform1f(loc, value.asInstanceOf[Float])
+      else if(value.isInstanceOf[Int])
+        gl.glUniform1i(loc, value.asInstanceOf[Int])
+    }
+  }
+
+  def setUniformParameter2(name: String, value1: Any, value2: Any): Unit = {
+    val loc = gl.glGetUniformLocation(this.program, name)
+    if(loc == -1) println("No such uniform parameter: "+name)
+    else {
+      if(value1.isInstanceOf[Float] && value2.isInstanceOf[Float])
+        gl.glUniform2f(loc, value1.asInstanceOf[Float], value2.asInstanceOf[Float])
+      else if(value1.isInstanceOf[Int] && value2.isInstanceOf[Int])
+        gl.glUniform2i(loc, value1.asInstanceOf[Int], value2.asInstanceOf[Int])
+    }
+  }
+
+  def setUniformParameter3(name: String, value1: Any, value2: Any, value3: Any): Unit = {
+    val loc = gl.glGetUniformLocation(this.program, name)
+    if(loc == -1) println("No such uniform parameter: "+name)
+    else {
+      if(value1.isInstanceOf[Float] && value2.isInstanceOf[Float] && value3.isInstanceOf[Float])
+        gl.glUniform3f(loc, value1.asInstanceOf[Float], value2.asInstanceOf[Float], value3.asInstanceOf[Float])
+      else if(value1.isInstanceOf[Int] && value2.isInstanceOf[Int] && value3.isInstanceOf[Int])
+        gl.glUniform3i(loc, value1.asInstanceOf[Int], value2.asInstanceOf[Int], value3.asInstanceOf[Int])
+    }
+  }
+
+  def setUniformParameter4(name: String, value1: Any, value2: Any, value3: Any, value4: Any): Unit = {
+    val loc = gl.glGetUniformLocation(this.program, name)
+    if(loc == -1) println("No such uniform parameter: "+name)
+    else {
+      if(value1.isInstanceOf[Float] && value2.isInstanceOf[Float] && value3.isInstanceOf[Float] && value4.isInstanceOf[Float])
+        gl.glUniform4f(loc, value1.asInstanceOf[Float], value2.asInstanceOf[Float], value3.asInstanceOf[Float], value4.asInstanceOf[Float])
+      else if(value1.isInstanceOf[Int] && value2.isInstanceOf[Int] && value3.isInstanceOf[Int] && value4.isInstanceOf[Int])
+        gl.glUniform4i(loc, value1.asInstanceOf[Int], value2.asInstanceOf[Int], value3.asInstanceOf[Int], value4.asInstanceOf[Int])
+    }
+  }
+
+  def destroyShader():Unit = {
     gl.glDetachShader(program, v)
     gl.glDeleteShader(v)
     gl.glDetachShader(program, f)
@@ -87,7 +131,7 @@ class Shader {
     gl.glDeleteProgram(program)
   }
 
-  private def getLog(shader:Int) = {
+  private def getLog(shader: Int) {
     val infoLogLength:Array[Int] = new Array(1)
     val length:Array[Int] = new Array(1)
     gl.glGetObjectParameterivARB(shader, GL2.GL_OBJECT_INFO_LOG_LENGTH_ARB, infoLogLength, 0)
@@ -98,7 +142,7 @@ class Shader {
     }
   }
 
-  private def inputStreamToString(stream:InputStream) : String = {
+  private def inputStreamToString(stream: InputStream): String = {
     val br = new BufferedReader(new InputStreamReader(stream))
     val sb = new StringBuilder
     var line:String  = null
