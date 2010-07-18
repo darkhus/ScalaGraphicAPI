@@ -17,21 +17,30 @@ trait GLTextRenderer { self: GLCanvas =>
   val ANCH_TOP = Int.MinValue+4
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
-  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 14)
+  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 24)
   private var _font = DefaultFont
   def font: Font = _font
-  def font_=(f: Font) = _font = f
-
+  //def font_=(f: Font) = _font = f
+  def font_=(f: Font) = {
+    if(renderer.getFont.equals(f) == false ||
+       _useFractionalMetrics != useFractionalMetrics ||
+       _antialiased != antialiasedFont) {
+      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
+      _useFractionalMetrics = useFractionalMetrics
+      _antialiased = antialiasedFont
+    }
+  }
   private var _antialiased = true
   private var _useFractionalMetrics = true
-  def setTextFont(f: Font, antialiased: Boolean, useFractionalMetrics: Boolean): Unit = {
-    if(renderer.getFont.equals(f) == false ||
-    _useFractionalMetrics != useFractionalMetrics ||
-     _antialiased != antialiased){
-      renderer = new JOGLTextRenderer(f, antialiased, useFractionalMetrics)
-      _useFractionalMetrics = useFractionalMetrics
-      _antialiased = antialiased
-    }
+  def antialiasedFont = _antialiased
+  def useFractionalMetrics = _useFractionalMetrics
+  def antialiased_(a: Boolean) = {
+    _antialiased = a
+    font =_font
+  }
+  def useFractionalMetrics_(fm: Boolean) = {
+    _useFractionalMetrics = fm
+    font =_font
   }
 
   private var renderer = new JOGLTextRenderer(_font, true, false)
@@ -129,14 +138,14 @@ trait GLTextRenderer { self: GLCanvas =>
           prevY = point(1)
           len += Math.sqrt(dx*dx + dy*dy).toFloat
         case _ =>
-          error("FlatteningPathIterator contract violated")
+          System.err.println("FlatteningPathIterator contract violated")
       }
       path.next()
     }
     return len
   }
 
-  def drawShapeText(text: String, shape: Shape): Unit = {
+  def drawTextOnPath(text: String, shape: Shape): Unit = {
     val it = shape.getPathIterator(null, 1.0)
     val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f
@@ -195,7 +204,7 @@ trait GLTextRenderer { self: GLCanvas =>
           }        
         case PathIterator.SEG_CLOSE =>
         case _ =>
-          error("FlatteningPathIterator contract violated")
+          System.err.println("FlatteningPathIterator contract violated")
       }
       it.next
     }

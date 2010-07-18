@@ -11,8 +11,7 @@ abstract class Canvas {
   def stroke_=(s: BasicStroke)
   def color: Color
   def color_=(c: Color)
-
-  def fontRenderContext: FontRenderContext
+  
   def DefaultFont: Font
   def font: Font
   def font_=(f: Font)

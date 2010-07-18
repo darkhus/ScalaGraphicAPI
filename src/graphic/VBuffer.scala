@@ -13,7 +13,8 @@ class VBuffer {
 // buffData = FloatBuffer.allocate(4*2)
     //buffData.put(verts)
     //buffData.rewind()
-    gl.glBufferData(GL.GL_ARRAY_BUFFER, floatSize*verts.size, /*buffData*/null, GL.GL_DYNAMIC_DRAW) // GL.GL_STATIC_DRAW)
+    gl.glBufferData(GL.GL_ARRAY_BUFFER, 
+                    /*floatSize*verts.size*/floatSize*5210, /*buffData*/null, GL.GL_DYNAMIC_DRAW) // GL.GL_STATIC_DRAW)
   }
 
   def drawBuffer(gl: GL2, drawType: Int, count: Int) {
@@ -40,5 +41,8 @@ class VBuffer {
     }
 // gl.getGL2GL3().glDisableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
     //bufferData
+  }
+
+  def deinitBuffer(): Unit = {
   }
 }
