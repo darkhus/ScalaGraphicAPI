@@ -1,7 +1,6 @@
 package graphic
 
 import java.awt.Font
-//import com.sun.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import java.awt.Shape
 import java.awt.geom.PathIterator
@@ -136,9 +135,9 @@ trait GLTextRenderer { self: GLCanvas =>
           val dy = point(1)-prevY
           prevX = point(0)
           prevY = point(1)
-          len += Math.sqrt(dx*dx + dy*dy).toFloat
+          len += math.sqrt(dx*dx + dy*dy).toFloat
         case _ =>
-          System.err.println("FlatteningPathIterator contract violated")
+          System.err.println("PathIterator contract violated")
       }
       path.next()
     }
@@ -155,8 +154,11 @@ trait GLTextRenderer { self: GLCanvas =>
     var next = 0.0f
     var nextAdv = 0.0f
 
-    val factor = pathLength(shape).toFloat/(renderer.getBounds(text)).getWidth.toFloat
+    val factor = pathLength(shape).toFloat/(renderer.getBounds(text)).getWidth.toFloat    
 
+    renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
+    renderer.setColor(color)
+    
     while(currChar<lenght && !it.isDone) {
 
       it.currentSegment(point) match {
@@ -183,16 +185,11 @@ trait GLTextRenderer { self: GLCanvas =>
                 nextAdv = renderer.getCharWidth(text.charAt(currChar+1))*0.5f
               else
                 nextAdv = 0
-              gl.glPushMatrix
-                renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
-                renderer.setColor(color)
+              gl.glPushMatrix                
                 gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
                 gl.getGL2().glLoadIdentity()
-                gl.glTranslatef(x, y, 0)
-                gl.glRotatef(angle.toDegrees, 0, 0, 1)
-                //gl.glTranslatef(-nextAdv, 0, 0)
-                renderer.draw(text.charAt(currChar).toString, 0, 0)
-                renderer.endRendering
+                gl.glRotatef(angle.toDegrees, 0, 0, 1)                
+                renderer.draw(text.charAt(currChar).toString, x.toInt, y.toInt)
               gl.glPopMatrix
               next += (nextAdvTmp+nextAdv) * factor
               currChar+=1
@@ -204,10 +201,11 @@ trait GLTextRenderer { self: GLCanvas =>
           }        
         case PathIterator.SEG_CLOSE =>
         case _ =>
-          System.err.println("FlatteningPathIterator contract violated")
+          System.err.println("PathIterator contract violated")
       }
       it.next
     }
+    renderer.endRendering
   }
 
 }
