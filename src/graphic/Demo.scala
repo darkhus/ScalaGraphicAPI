@@ -17,8 +17,14 @@ import java.io.InputStream
 
 abstract class Demo extends JFrame {
   val canvas = new GLCanvas  
-  var image1: Texture = null
+  var image1: GLImage = null
+  var image2: GLImage = null
   val shader: Shader = new Shader
+  var t0, lastFPSUpdate = System.nanoTime
+  var t = 0
+  var t1 = 0L
+  var framesCounter = 0L
+  var fpsCounter = 0.0
 
   def main(args: Array[String]) {
     val profile = GLProfile.getDefault
@@ -38,9 +44,9 @@ abstract class Demo extends JFrame {
     joglCanvas.requestFocusInWindow()
     setVisible(true)
 
-    val anim = new FPSAnimator(joglCanvas, 50)
-    //val anim = new Animator(joglCanvas)
-    //anim.setRunAsFastAsPossible(true)
+//    val anim = new FPSAnimator(joglCanvas, 50)
+    val anim = new Animator(joglCanvas)
+    anim.setRunAsFastAsPossible(true)
     anim.start
   }
 
@@ -51,26 +57,35 @@ abstract class Demo extends JFrame {
       shader.buildShader(gl)
       shader.compileShadersFromFile("data/solid.fs", "data/solid.vs")
       image1 = loadImage("data/CoffeeBean.bmp", "bmp")
+      image2 = loadImage("data/Island.jpg", "jpg")
+      drawable.setRealized(true)
     }
 
-    def display(drawable: GLAutoDrawable) {      
-      canvas.gl = drawable.getGL.getGL2
-      canvas.resize(drawable.getWidth, drawable.getHeight)      
+    def display(drawable: GLAutoDrawable) {
+      drawable.getContext.makeCurrent
+      canvas.gl = drawable.getGL.getGL2      
       draw(canvas)      
+      drawable.getContext.release
     }
 
-    def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {}
-    def dispose(drawable: GLAutoDrawable) {}
+    def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
+      canvas.resize(drawable.getWidth, drawable.getHeight)
+    }
+    def dispose(drawable: GLAutoDrawable) {
+      drawable.getContext.makeCurrent
+      canvas.deinit
+      drawable.getContext.destroy
+    }
   }
 
-  def textOutline(f: Font, g: Canvas, str: String, x: Int, y: Int): Shape =
+  def textOutline(f: Font, str: String, x: Int, y: Int): Shape =
     f.createGlyphVector(new FontRenderContext(null, false, false), str).getOutline(x,y)
 
-  def loadImage(name: String, sufix: String): Texture = {
+  def loadImage(name: String, sufix: String): GLImage = {
     val f: InputStream = getClass.getResourceAsStream(name)
     try {
       val img = TextureIO.newTexture(f, true, sufix)
-      return img
+      return new GLImage(img)
     } catch {
       case ioe: IOException => {
           error("Image loading: can't find file "+name+"\n"+ioe.toString)
@@ -78,6 +93,20 @@ abstract class Demo extends JFrame {
       case e: Exception => { error("Image loading: " + e.toString) }
     }
     return null
+  }
+
+  def countFPS(){
+    framesCounter +=1
+    t1 = System.nanoTime
+    var fps = 1000000000.0/(t1 - t0)
+    fpsCounter += fps
+    val avg = fpsCounter / framesCounter
+    if(t1 - lastFPSUpdate > 1000000000){  // display fps in each sec
+      t += 1
+      println("Fps: " + fps.toFloat +", Avg: " + avg.toFloat +", Sec: "+t)
+      lastFPSUpdate = t1      
+    }
+    t0 = t1
   }
 
   def draw(canvas: GLCanvas)

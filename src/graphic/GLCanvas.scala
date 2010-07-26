@@ -1,5 +1,7 @@
 package graphic
 
+import java.nio.FloatBuffer
+import java.util.ArrayList
 import javax.media.opengl._
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 import javax.media.opengl.glu.GLU
@@ -12,52 +14,62 @@ import java.awt.geom.Rectangle2D
 import java.awt.geom.RoundRectangle2D
 import java.awt.{Color, BasicStroke}
 
-class GLCanvas extends Canvas 
+class GLCanvas extends Canvas
                   with GLTextRenderer with GLImageRenderer with Tessellator {
-  private val bufferId: Array[Int] = Array(0)
+  protected val bufferId: Array[Int] = Array(0)
   private val floatSize = 4
-  private var fixedArraySize = 1024
-  private val extendArraySize = 1024
-  private var verts = new Array[Float](fixedArraySize)
+  private var fixedArraySize = 4096//12210
+  private val extendArraySize = 4096 // 4096 = 2048 two coord's verts = 8192 bytes
+  private var verts = FloatBuffer.allocate(fixedArraySize)//new Array[Float](fixedArraySize)
   private var tmpVerts = new Array[Float](fixedArraySize)
-  private[graphic] var gl: GL2 = null
-  private val vbo = new VBuffer
-  private var vertsNumTmp = 0
+  protected[graphic] var gl: GL2 = null
+  //private val vbo = new VBuffer
   private var vertsNum = 0
+  private var totalCountNumber = 0
   private val point = new Array[Float](6)
-  private val arcVerts = new Array[Float](360)
+  private val arcVerts = new Array[Float](180)
 
-  private var i: Int = 0
-  private var ind: Int = 0
-  private var nx: Float = 0
-  private var ny: Float = 0
-  private var curx: Float = 0
-  private var cury: Float = 0
-  private var startInd: Int = 0
-  private var endInd: Int = 0
-
-  val miter_limit = 100  
+  private var gvi: Int = 0 // global vertex index
+  private var ind: Int = 0 // index for path outline
+  private var nx = 0.0f
+  private var ny = 0.0f
+  private var curx = 0.0f
+  private var cury = 0.0f
+  
   private var arcInd = 0
   private var endsAtStart = false
   private var implicitClose = false
   val WIDTH_MIN = 0.25
   val WIDTH_MAX = 20
+  private var thinLine = false
 
-  val uniqueStencilClipValue = 10
-  val uniqueStencilValue1 = 5  
+  private val uniqueStencilClipValue = 10
+  private val uniqueStencilValue1 = 5
 
-  //private val tess = new Tessellator
+  private val shapeStore = new ArrayList[Shape]
+  private val vertsStore = new ArrayList[Array[Float]]
+  private val TESS_STORE_LIMIT = 6
 
   private var _stroke = new BasicStroke
+
   def stroke: BasicStroke = _stroke
   def stroke_=(s: BasicStroke) {
     val w = s.getLineWidth
+    var cap = s.getEndCap
+    var join = s.getLineJoin
+    if(w <= 3) {
+      cap = BasicStroke.CAP_SQUARE
+      join = BasicStroke.JOIN_BEVEL
+      if(w <= 0.75) thinLine = true
+      else thinLine = false
+    }
+    else thinLine = false
     _stroke = if(w > WIDTH_MIN && w < WIDTH_MAX) s
-              else new BasicStroke(math.max(w, math.min(WIDTH_MAX, w)), s.getEndCap, s.getLineJoin,
+              else new BasicStroke(math.max(w, math.min(WIDTH_MAX, w)), cap, join,
                                    s.getMiterLimit, s.getDashArray, s.getDashPhase)
   }
 
-  private def lineWidth = _stroke.getLineWidth / 2
+  private def lineWidth = _stroke.getLineWidth / 2.0f
 
   private var _color = Color.BLACK
   def color: Color = _color
@@ -71,31 +83,36 @@ class GLCanvas extends Canvas
   def clip_=(shape: Shape) = {
     if(shape != null){
       gl.glEnable(GL.GL_STENCIL_TEST)
+      gl.glDisable(GL.GL_BLEND)
       gl.glStencilFunc(GL.GL_ALWAYS, uniqueStencilClipValue, ~0)
       gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_REPLACE)
       gl.glColorMask(false, false, false, false)
 
-      tessShape(shape)
-      vbo.mapBuffer(gl, bufferId, verts)
-      vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
-      
+      tessShape(shape, false)
+      fillAndDrawBuffer(vertsNum)
+
       gl.glColorMask(true, true, true, true)
       gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilClipValue, ~0)
-      gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
+      gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)      
     } else {
       gl.glDisable(GL.GL_STENCIL_TEST)
     }
   }
 
   private[graphic] def init(gl2: GL2) {
-    glImg = gl2
-    gl = gl2   
+    gl = gl2
     gl2.glEnable(GL.GL_MULTISAMPLE)
     gl2.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
     gl2.glEnable(GL.GL_BLEND)
 
     gl2.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
-    vbo.init(gl2, bufferId, verts, null, floatSize)
+
+    // VBO initialization
+    gl.glGenBuffers(1, bufferId, 0)
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))    
+    gl.glBufferData(GL.GL_ARRAY_BUFFER, floatSize*fixedArraySize, null, GL.GL_DYNAMIC_DRAW)
+    gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
+
     gl2.glColor3f(0, 0, 0)
   }
 
@@ -110,42 +127,25 @@ class GLCanvas extends Canvas
     gl.glLoadIdentity()
   }
 
-  var fr: Long = 0
-  var t1s: Long = 0
-  var t2s: Long = 0
   def stroke(shape: Shape): Unit = {
-
     if(shape != null) {
-      /*
-    fr+=1
-    var t = System.nanoTime      
-      //strokeShape_1(shape)
-      t2s += System.nanoTime - t
-      //println("Basic Stroke: "+ (System.nanoTime - t) + ", avg: "+ t2s/fr)
-      t = System.nanoTime
-      if(stroke.getDashArray != null)
-        shapeToTriangleStrip(strokeShape_2(shape), true)
-      else
-        shapeToTriangleStrip(shape, true)
-      t1s += System.nanoTime - t
-      //println("Stroke 2   : "+ (System.nanoTime - t) + ", avg: "+ t1s/fr); println
-      */
-    
-    gl.glEnable(GL.GL_STENCIL_TEST)
-    gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilValue1, ~0)
-    gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
-    
-    if(stroke.getDashArray != null) {// if dash      
-      strokeShape_1(shape) // when dash      
-      strokeShape(shape, false)
-    } else {
-      strokeShape(shape, true) // when no dash
-    }
-    
-    vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
+      if(color.getAlpha == 1.0f)
+        gl.glDisable(GL.GL_BLEND)
+      gl.glEnable(GL.GL_STENCIL_TEST)
+      gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilValue1, ~0)
+      gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
 
-    gl.glDisable(GL.GL_STENCIL_TEST)
+      if(stroke.getDashArray != null) {
+        //strokeShape_1(shape)
+        strokeShape(shape, false) // when dash
+      } else {
+        strokeShape(shape, true) // when no dash
+      }
+
+      fillAndDrawBuffer(vertsNum)
+      gl.glDisable(GL.GL_STENCIL_TEST)
+      if(color.getAlpha == 1.0f)
+        gl.glEnable(GL.GL_BLEND)
     }
   }
 
@@ -157,82 +157,88 @@ class GLCanvas extends Canvas
       if(shape.isInstanceOf[Arc2D])
         if(shape.asInstanceOf[Arc2D].getArcType == Arc2D.OPEN)
           shape.asInstanceOf[Arc2D].setArcType(Arc2D.CHORD)
-      tessShape(shape)
+      tessShape(shape, false)
     }
-    vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)    
+    if(color.getAlpha == 1.0f)
+      gl.glDisable(GL.GL_BLEND)
+    fillAndDrawBuffer(vertsNum)
+    if(color.getAlpha == 1.0f)
+      gl.glEnable(GL.GL_BLEND)
   }
 
   def clipStroke(shape: Shape): Unit = {
-    gl.glEnable(GL.GL_STENCIL_TEST)
-    gl.glStencilFunc(GL.GL_ALWAYS, 1, 1)
-    gl.glStencilOp(GL.GL_REPLACE, GL.GL_REPLACE, GL.GL_REPLACE)
-    gl.glColorMask(false, false, false, false)
+    if(shape != null){
+      gl.glEnable(GL.GL_STENCIL_TEST)
+      gl.glDisable(GL.GL_BLEND)
+      gl.glStencilFunc(GL.GL_ALWAYS, uniqueStencilClipValue, ~0)
+      gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_REPLACE)
+      gl.glColorMask(false, false, false, false)
 
     if(stroke.getDashArray != null) // if dash
       strokeShape(shape, false)
     else
       strokeShape(shape, true)
-    
-    vbo.mapBuffer(gl, bufferId, verts)
-    vbo.drawBuffer(gl, GL.GL_TRIANGLE_STRIP, vertsNum)
 
-    gl.glColorMask(true, true, true, true)
-    gl.glStencilFunc(GL.GL_EQUAL, 1, 1)
-    gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_KEEP)
+    fillAndDrawBuffer(vertsNum)
+
+      gl.glColorMask(true, true, true, true)
+      gl.glStencilFunc(GL.GL_EQUAL, uniqueStencilClipValue, ~0)
+      gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_ZERO)
+    } else {
+      gl.glDisable(GL.GL_STENCIL_TEST)
+    }
   }
 
   override // from tessellation
   def end() {
-    // triangle fan - 6
-    // triangle strip - 5
-    // triangles - 4
     var st = 0
-    var end = tempTessIndex
-    // triangle fan -> triangle strip
-    if(mode == GL.GL_TRIANGLE_FAN) {
-      st+=2
-      addVertex(tmpVerts(st), tmpVerts(st+1))
-      while(st < end){
-        addVertex(tmpVerts(st), tmpVerts(st+1))
+    var end = tempTessIndex    
+    
+    mode match {
+      case GL.GL_TRIANGLE_FAN =>
         st+=2
-        addVertex(tmpVerts(0), tmpVerts(1))
-        if(st<end){
+        addVertex(tmpVerts(st), tmpVerts(st+1))
+        while(st < end){
           addVertex(tmpVerts(st), tmpVerts(st+1))
           st+=2
+          addVertex(tmpVerts(0), tmpVerts(1))
+          if(st<end){
+            addVertex(tmpVerts(st), tmpVerts(st+1))
+            st+=2
+          }
+          if(st<end){
+            addVertex(tmpVerts(st), tmpVerts(st+1))
+            st+=2
+            addVertex(verts.get(gvi-2), verts.get(gvi-1))
+          }
         }
-        if(st<end){
-          addVertex(tmpVerts(st), tmpVerts(st+1))
-          st+=2
-        }
-      }
-      addVertex(verts(i-2), verts(i-1))
-    }
-    // triangle strip-> triangle strip
-    if(mode == GL.GL_TRIANGLE_STRIP) {
-      addVertex(tmpVerts(st), tmpVerts(st+1))
-      while(st < end) {
-        addVertex(tmpVerts(st), tmpVerts(st+1))
-        st+=2
-      }
-      addVertex(verts(i-2), verts(i-1))
-    }
+        addVertex(verts.get(gvi-2), verts.get(gvi-1))
 
-    // triangles -> triangle strip
-    if(mode == GL.GL_TRIANGLES) {
-      var tri = 0
-      while(st < end) {
-        if(tri==0) {
-          addVertex(tmpVerts(st), tmpVerts(st+1))
-        }
+      case GL.GL_TRIANGLE_STRIP =>
         addVertex(tmpVerts(st), tmpVerts(st+1))
-        st+=2        
-        tri+=1
-        if(tri==3) {
-          addVertex(verts(i-2), verts(i-1))
-          tri = 0
+        while(st < end) {
+          addVertex(tmpVerts(st), tmpVerts(st+1))
+          st+=2
         }
-      }
+        addVertex(verts.get(gvi-2), verts.get(gvi-1))
+
+      case GL.GL_TRIANGLES =>
+        var tri = 0
+        while(st < end) {
+          if(tri==0) {
+            addVertex(tmpVerts(st), tmpVerts(st+1))
+          }
+          addVertex(tmpVerts(st), tmpVerts(st+1))
+          st+=2
+          tri+=1
+          if(tri==3) {
+            addVertex(verts.get(gvi-2), verts.get(gvi-1))
+            tri = 0
+          }
+        }
+      
+      case _ =>
+        System.err.println("Tessellation mode error!")
     }
     tempTessIndex = 0
   }
@@ -244,15 +250,46 @@ class GLCanvas extends Canvas
     tempTessIndex+=2
   }
 
-  private def tessShape(shape: Shape)  {
+  private def compareShapes(s1: Shape, s2: Shape): Boolean = {
+        val point1 = new Array[Float](6)
+        val point2 = new Array[Float](6)
+        val p1 = s1.getPathIterator(null, 1.0)
+        val p2 = s2.getPathIterator(null, 1.0)
+        while(!p1.isDone && !p2.isDone){
+          p1.currentSegment(point1)
+          p2.currentSegment(point2)
+          if( !(point1(0) == point2(0) && point1(1) == point2(1)))
+            return false
+          p1.next
+          p2.next
+        }
+        if(!(p1.isDone && p2.isDone))
+          return false
+        return true
+  }
+
+  private def tessShape(shape: Shape, cache: Boolean)  {
+    var toRestore = false
+    var shapeInd = -1
+    while(toRestore == false && shapeInd<TESS_STORE_LIMIT && cache==true){
+      shapeInd+=1
+      if(shapeStore.size > shapeInd)
+        toRestore = compareShapes(shapeStore.get(shapeInd), shape)
+    }
+
+    if(toRestore && cache==true){
+      verts.position(0)
+        verts.put(vertsStore.get(shapeInd))
+        gvi = vertsStore.get(shapeInd).size
+        tempTessIndex = 0
+    } else {
     val path = shape.getPathIterator(null, flatnessFactor(shape))
     this.setWindRule(path.getWindingRule)
     this.startTessPolygon
-    //tess.startTessContour    
-    i = 0    
+    //tess.startTessContour
+    gvi = 0
     while(!path.isDone){
-      var t = path.currentSegment(point)
-      t match {
+      path.currentSegment(point) match {
       case java.awt.geom.PathIterator.SEG_MOVETO =>
         this.startTessContour
         this.addVertexToTess(point(0), point(1))
@@ -268,20 +305,30 @@ class GLCanvas extends Canvas
     //tess.endTessContour
     this.endTessPolygon
 
-    endInd = i
-    vertsNumTmp = i/2
-    vertsNum = vertsNumTmp
-    i=0
+      if(shapeStore.size <= TESS_STORE_LIMIT && cache==true){
+        shapeStore.add(shape)
+        val tessArray = new Array[Float](gvi)
+        verts.array.copyToArray(tessArray, 0, gvi)
+        vertsStore.add(tessArray)
+      }
+      //val z = new Array[Float](i)
+      //verts.copyToArray(z, 0, i)
+      //vertsStore.add(z)
+
+    }
+
+    vertsNum = gvi/2
+    gvi = 0
     ind = 0
   }
-  
+
   private def strokeShape_1(shape: Shape) {
     triangulateConvexPath(stroke.createStrokedShape(shape).getPathIterator(null, 1.0f))
   }
- 
-  private def triangulateConvexPath(path: PathIterator) {    
+
+  private def triangulateConvexPath(path: PathIterator) {
     var z = 0
-    i=0
+    gvi = 0
     while(!path.isDone) {
       path.currentSegment(point) match {
         case java.awt.geom.PathIterator.SEG_MOVETO =>
@@ -295,28 +342,26 @@ class GLCanvas extends Canvas
           var st = 0
           var end = z
           while(st < end) {
-            addVertex(tmpVerts(st), tmpVerts(st+1))           
+            addVertex(tmpVerts(st), tmpVerts(st+1))
             st+=2
             addVertex(tmpVerts(end-2), tmpVerts(end-1))
             end-=2
           }
-          addVertex(verts(i-2), verts(i-1))
+          //addVertex(verts(i-2), verts(i-1))
+          addVertex(verts.get(gvi-2), verts.get(gvi-1))
         case _ =>
           System.err.println("PathIterator contract violated")
       }
       path.next
     }
-    vertsNum = i/2
-    i=0
+    vertsNum = gvi/2
+    gvi = 0
     ind = 0
   }
-  
+
   private def strokeShape(shape: Shape, noDash: Boolean) {
 
-    val strokePath = new Path2D.Float
-    var len = 16.0f // length of stroke element
     var path = shape.getPathIterator(null, flatnessFactor(shape))
-    
     if(shape.isInstanceOf[Arc2D] && !noDash){
       val path2: Path2D.Float = new Path2D.Float
       path2.append(shape.getPathIterator(null, 1.0), false)
@@ -326,7 +371,9 @@ class GLCanvas extends Canvas
       path2.closePath
       path = path2.getPathIterator(null, 1.0)
     }
-    
+
+    val strokePath = new Path2D.Float
+    var len = 10.0f // lenght of stroke segment
     var prevx = 0.0f
     var prevy = 0.0f
     var next = false // wheater to go to next point form path iterator
@@ -336,27 +383,38 @@ class GLCanvas extends Canvas
     val dash = stroke.getDashArray
     var f = false
 
-    i = 0
-if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
+    gvi=0
+
+    if(!noDash) {
+      //len = dash(0) + stroke.getDashPhase// stroke
+      len = stroke.getDashPhase % (dash(0)+dash(1))
+      if(len <= dash(0)){
+        inter = 0 // stroke
+      } else {
+        inter = 1
+        len = len - dash(0) // break
+      }
+    }
     while(!path.isDone){
       path.currentSegment(point) match {
       case java.awt.geom.PathIterator.SEG_MOVETO =>
           if(noDash){
-            addTmpVertex(point(0), point(1), i)
-            i+=2
+            addTmpVertex(point(0), point(1), gvi)
+            gvi += 2
           } else {
-            strokePath.moveTo(point(0), point(1))
-            inter = 0
+            if(inter%2 == 0){
+              strokePath.moveTo(point(0), point(1))
+//            inter = 0
+              addTmpVertex(point(0), point(1), gvi)
+              gvi += 2
+            }
             prevx = point(0)
             prevy = point(1)
-//            len = dash(0) + stroke.getDashPhase// stroke
-            addTmpVertex(point(0), point(1), i)
-            i+=2
           }
       case java.awt.geom.PathIterator.SEG_LINETO =>
         if(noDash){
-          addTmpVertex(point(0), point(1), i)
-          i+=2
+          addTmpVertex(point(0), point(1), gvi)
+          gvi += 2
         } else {
           while(next == false){
             val dist = scala.Math.sqrt((point(0)-prevx)*(point(0)-prevx) + (point(1)-prevy)*(point(1)-prevy)).toFloat
@@ -370,16 +428,18 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
               prevy = mtp2
               // end point
               if(inter%2 == 0) {
-                strokePath.lineTo(mtp1.toFloat, mtp2.toFloat)
+                //if(first == true)
+                  strokePath.lineTo(mtp1.toFloat, mtp2.toFloat)
                 len = dash(1) // space
-                addTmpVertex(mtp1.toFloat, mtp2.toFloat, i)
-                i+=2
+                addTmpVertex(mtp1.toFloat, mtp2.toFloat, gvi)
+                gvi += 2
               }
               else {
+                //first = true
                 strokePath.moveTo(prevx, prevy)
                 len = dash(0) // stroke
-                addTmpVertex(prevx, prevy, i)
-                i+=2
+                addTmpVertex(prevx, prevy, gvi)
+                gvi += 2
               }
               inter += 1
             } else {
@@ -388,8 +448,8 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
               prevy = point(1)
               if(inter%2 == 0){ // dont add when break
                 strokePath.lineTo(point(0), point(1)) // middle point
-                addTmpVertex(point(0), point(1), i)
-                i+=2
+                addTmpVertex(point(0), point(1), gvi)
+                gvi += 2
               }
               next = true
             }
@@ -405,31 +465,11 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
     }
     if(noDash == false) strokePath.closePath
 
-    /*
-    var path = shape.getPathIterator(null, flatnessFactor(shape))
-    i = 0
-    while(!path.isDone){
-      var t = path.currentSegment(point)
-      t match {
-      case java.awt.geom.PathIterator.SEG_MOVETO =>
-        addTmpVertex(point(0), point(1), i)
-        i+=2
-      case java.awt.geom.PathIterator.SEG_LINETO =>
-        addTmpVertex(point(0), point(1), i)
-        i+=2
-      case java.awt.geom.PathIterator.SEG_CLOSE =>
-      case _ =>
-        System.err.println("PathIterator contract violated")
-      }
-      path.next
-    }
-*/
-    endInd = i
-    vertsNumTmp = i/2
-    i=0
+    gvi = 0
     ind = 0
-    
-      var prevt = 0
+
+    var prevt = 0
+    var startInd = 0
       if(noDash)
         path = shape.getPathIterator(null, flatnessFactor(shape))
       else
@@ -445,7 +485,7 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
           ind+=2
           prevt = t
         case java.awt.geom.PathIterator.SEG_LINETO =>
-          if (prevt != PathIterator.SEG_MOVETO)
+          if (prevt != PathIterator.SEG_MOVETO && thinLine == false)
             join(ind)
           lineto(ind)
           ind+=2
@@ -456,16 +496,16 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
           System.err.println("PathIterator contract violated")
         }
         path.next
-      }      
+      }
       endCapOrCapClose(startInd, false)
-      vertsNum = i/2    
+      vertsNum = gvi/2
   }
 
   private def flatnessFactor(shape: Shape):Double = {
     val flatTresh = 40.0 // treshold for decreasing flatness factor
     val size = math.min(shape.getBounds2D.getWidth, shape.getBounds2D.getHeight) - flatTresh
     val linearFactor = 500.0
-    val flatMax = 1.0    
+    val flatMax = 1.0
     val fac1 = 5.0
     if(size > 0f)
       return flatMax - math.log10(size)/fac1
@@ -475,42 +515,41 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
 
   private def addVertex(x: Float, y: Float) {
     // extends array, increase global index
-    if(i+2 < fixedArraySize) {
-      verts(i) = x
-      verts(i+1) = y
-      i+=2
-    } else { // re-size the array
-      val tempArray = new Array[Float](fixedArraySize)
-      verts.copyToArray(tempArray)
+    if(gvi+2 < fixedArraySize) {      
+      verts.put(x)
+      verts.put(y)
+      gvi += 2
+    } else { // re-size the array      
       fixedArraySize = fixedArraySize + extendArraySize
-      println("verts Array resized to: "+fixedArraySize)
-      verts = new Array[Float](fixedArraySize)
-      tempArray.copyToArray(verts)
-      verts(i) = x
-      verts(i+1) = y
-      i+=2
+      val tmpVertsBuffer = FloatBuffer.allocate(fixedArraySize)
+      tmpVertsBuffer.put(verts.array, 0, gvi)
+      verts = tmpVertsBuffer
+      verts.position(gvi)
+      verts.put(x)
+      verts.put(y)
+      gvi += 2
+      resizeVBO
+      println("Verts Array resized to: "+fixedArraySize+" elements")
+      println("VBO resized to: "+fixedArraySize*4+" bytes")
     }
   }
 
-  private def addTmpVertex(x: Float, y: Float, index: Int) {
-    // extends array tmp, does not increase global index
+  private def addTmpVertex(x: Float, y: Float, index: Int) {    
     if(index+2 < fixedArraySize) {
       tmpVerts(index) = x
       tmpVerts(index+1) = y
-    } else { // re-size the array
+    } else { // extends array tmp, does not increase global index
       val tempArray = new Array[Float](fixedArraySize)
       tmpVerts.copyToArray(tempArray)
       fixedArraySize = fixedArraySize + extendArraySize
-      println("tmp and verts Array resized to: "+fixedArraySize)
+      println("tmp verts Array resized to: "+fixedArraySize)
       tmpVerts = new Array[Float](fixedArraySize)
-      // most probably verts arry will be at lest same size as tmpVerts array
-      verts = new Array[Float](fixedArraySize)
       tempArray.copyToArray(tmpVerts)
       tmpVerts(index) = x
       tmpVerts(index+1) = y
     }
   }
- 
+
   private def lineto(ind: Int) {
     emitLineSeg(tmpVerts(ind), tmpVerts(ind+1), nx, ny)
     curx = tmpVerts(ind)
@@ -553,7 +592,7 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
       case BasicStroke.CAP_ROUND =>
         arcPoints(curx, cury, curx+nx, cury+ny, curx-nx, cury-ny)
         var st = 0
-        var end = arcInd        
+        var end = arcInd
         addVertex(curx + nx, cury + ny)
         addVertex(curx + nx, cury + ny)
         while(end > st){
@@ -562,7 +601,8 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
           addVertex(arcVerts(end-2), arcVerts(end-1))
           end -= 2
         }
-        addVertex(verts(i-2), verts(i-1))
+        //addVertex(verts(i-2), verts(i-1))
+        addVertex(verts.get(gvi-2), verts.get(gvi-1))
         addVertex(curx + nx, cury + ny)
     }
     emitLineSeg(curx, cury, nx, ny)
@@ -591,20 +631,20 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
     stroke.getLineJoin match {
       case BasicStroke.JOIN_BEVEL =>
       case BasicStroke.JOIN_MITER =>
-        val count = i
-        val prevNvx = verts(count-2) - curx
-        val prevNvy = verts(count-1) - cury
+        val count = gvi
+        val prevNvx = verts.get(count-2) - curx
+        val prevNvy = verts.get(count-1) - cury
         val xprod = prevNvx * ny - prevNvy * nx
         var px, py, qx, qy = 0.0
 
         if(xprod <0 ) {
-          px = verts(count-2)
-          py = verts(count-1)
+          px = verts.get(count-2)
+          py = verts.get(count-1)
           qx = curx - nx
           qy = cury - ny
         } else {
-          px = verts(count-4)
-          py = verts(count-3)
+          px = verts.get(count-4)
+          py = verts.get(count-3)
           qx = curx + nx
           qy = cury + ny
         }
@@ -614,13 +654,13 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
         var ix = (ny * pu - prevNvy * qv) / xprod
         var iy = (prevNvx * qv - nx * pu) / xprod
 
-        if ((ix - px) * (ix - px) + (iy - py) * (iy - py) <= miter_limit * miter_limit) {
+        if ((ix - px) * (ix - px) + (iy - py) * (iy - py) <= stroke.getMiterLimit * stroke.getMiterLimit) {
           addVertex(ix.toFloat, iy.toFloat)
           addVertex(ix.toFloat, iy.toFloat)
-        }    
+        }
     case BasicStroke.JOIN_ROUND =>
-      val prevNvx = verts(i-2) - curx
-      val prevNvy = verts(i-1) - cury
+      val prevNvx = verts.get(gvi-2) - curx
+      val prevNvy = verts.get(gvi-1) - cury
       var ii:Int = 0
       if(nx * prevNvy - ny * prevNvx < 0) {
         arcPoints(0, 0, nx, ny, -prevNvx, -prevNvy)
@@ -650,8 +690,8 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
 
     val sin_theta = math.sin(math.Pi/roundFactor).toFloat
     val cos_theta = math.cos(math.Pi/roundFactor).toFloat
-    
-    arcInd = 0    
+
+    arcInd = 0
     while (dx1 * dy2 - dx2 * dy1 < 0) {
       val tmpx = dx1 * cos_theta - dy1 * sin_theta
       val tmpy = dx1 * sin_theta + dy1 * cos_theta
@@ -659,7 +699,7 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
       dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
-      arcInd+=2      
+      arcInd+=2
     }
 
     while (dx1 * dx2 + dy1 * dy2 < 0) {
@@ -669,7 +709,7 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
       dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
-      arcInd+=2      
+      arcInd+=2
     }
 
     while (dx1 * dy2 - dx2 * dy1 >= 0) {
@@ -679,7 +719,7 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
       dy1 = tmpy
       arcVerts(arcInd) = cx + dx1
       arcVerts(arcInd+1) = cy + dy1
-      arcInd+=2      
+      arcInd+=2
     }
     //if(arcInd>0) arcInd -= 2
   }
@@ -694,7 +734,8 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
     } else {
       endCap()
     }
-    addVertex(verts(i-2), verts(i-1))
+    //addVertex(verts(i-2), verts(i-1))
+    addVertex(verts.get(gvi-2), verts.get(gvi-1))
 }
 
   private def endCap() {
@@ -703,33 +744,81 @@ if(!noDash) len = dash(0) + stroke.getDashPhase// stroke
       case BasicStroke.CAP_BUTT =>
         emitLineSeg(curx+ny, cury-nx, nx, ny)
       case BasicStroke.CAP_ROUND =>
-        
-        arcPoints(curx, cury, verts(i-2), verts(i-1), verts(i-4), verts(i-3) )
+
+        arcPoints(curx, cury, verts.get(gvi-2), verts.get(gvi-1), verts.get(gvi-4), verts.get(gvi-3) )
         var front:Int = 1
         var end:Int = (arcInd-2) / 2
-        while (front < end) {          
+        while (front < end) {
           addVertex(arcVerts(2*end-2), arcVerts(2*end-1))
           end-=1
-          if (front < end) {            
+          if (front < end) {
             addVertex(arcVerts(2*front), arcVerts(2*front+1))
             front+=1
           }
-        }        
-        addVertex(verts(i-2), verts(i-1))        
+        }
+        addVertex(verts.get(gvi-2), verts.get(gvi-1))
     }
   }
 
   def clear(c: Color): Unit = {
+    verts.position(0)
+    totalCountNumber = 0
+    gvi = 0
+
     gl.glClearColor(c.getRed/255f, c.getGreen/255f, c.getBlue/255f, c.getAlpha/255f)
-    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)    
+    gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT)
     gl.glEnable(GL.GL_STENCIL_TEST)
+    gl.glDisable(GL.GL_BLEND)
     gl.glStencilFunc(GL.GL_ALWAYS, uniqueStencilValue1, 0)
     gl.glStencilOp(GL.GL_KEEP, GL.GL_KEEP, GL.GL_REPLACE)
     gl.glColor4f(c.getRed/255f, c.getGreen/255f, c.getBlue/255f, c.getAlpha/255f)
     this.fill(new Rectangle2D.Float(0, 0, 500, 500))
     gl.glDisable(GL.GL_STENCIL_TEST)
+    gl.glEnable(GL.GL_BLEND)
   }
+
   def deinit(): Unit = {
     gl.glDeleteBuffers(1, bufferId, 0)
+  }
+
+  private def resizeVBO() {
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
+    gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
+    gl.glBufferData(GL.GL_ARRAY_BUFFER, floatSize*fixedArraySize, null, GL.GL_DYNAMIC_DRAW)
+  }
+
+  private def fillAndDrawBuffer(count: Int) {
+/*
+// buffer mapping
+//    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
+//    gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*5210, null, GL.GL_STATIC_DRAW)
+    val byteBuffer = gl.glMapBuffer(GL.GL_ARRAY_BUFFER, javax.media.opengl.GL.GL_WRITE_ONLY)
+    if(byteBuffer != null) {
+      bufferData = (byteBuffer.order(ByteOrder.nativeOrder())).asFloatBuffer
+      bufferData.put(verts.array, 0, count*2)
+      //bufferData.rewind()
+    }
+    verts.position(0)
+    if( gl.glUnmapBuffer(GL.GL_ARRAY_BUFFER) == false ) {
+      System.err.println("Error mapping VBO, error code: "+gl.glGetError)
+    }
+    gl.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, count)
+*/
+    verts.position(0)
+//    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
+/*
+    gl.glBufferData(GL.GL_ARRAY_BUFFER, 8*count, verts, GL.GL_DYNAMIC_DRAW)
+    gl.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, count)
+*/
+    gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
+    gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 4*verts.position, count*8, verts)
+//    gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
+    gl.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, count)
+/*
+    gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 8*totalCountNumber, count*8, verts)
+//    gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
+    gl.glDrawArrays(GL.GL_TRIANGLE_STRIP, totalCountNumber, count)
+    totalCountNumber += count
+*/
   }
 }

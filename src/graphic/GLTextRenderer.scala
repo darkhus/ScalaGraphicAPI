@@ -4,11 +4,12 @@ import java.awt.Font
 import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import java.awt.Shape
 import java.awt.geom.PathIterator
-import javax.media.opengl.GL2
-import java.awt.geom.CubicCurve2D
+import java.util.ArrayList
+import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
 trait GLTextRenderer { self: GLCanvas =>
+//  private val bufferId: Array[Int] = Array(0)
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
   val ANCH_MID = Int.MinValue+2
@@ -16,7 +17,8 @@ trait GLTextRenderer { self: GLCanvas =>
   val ANCH_TOP = Int.MinValue+4
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
-  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 24)
+  private val REND_CACHE_LIMIT = 100
+  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 14)
   private var _font = DefaultFont
   def font: Font = _font
   //def font_=(f: Font) = _font = f
@@ -24,9 +26,11 @@ trait GLTextRenderer { self: GLCanvas =>
     if(renderer.getFont.equals(f) == false ||
        _useFractionalMetrics != useFractionalMetrics ||
        _antialiased != antialiasedFont) {
-      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
-      _useFractionalMetrics = useFractionalMetrics
-      _antialiased = antialiasedFont
+  
+      cacheRenderer(renderer, f)
+//      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
+//      _useFractionalMetrics = useFractionalMetrics
+//      _antialiased = antialiasedFont
     }
   }
   private var _antialiased = true
@@ -42,7 +46,24 @@ trait GLTextRenderer { self: GLCanvas =>
     font =_font
   }
 
-  private var renderer = new JOGLTextRenderer(_font, true, false)
+  private var renderer = new JOGLTextRenderer(_font, true, true)
+
+  private val fontStore = new ArrayList[Font]
+  private val rendStore = new ArrayList[JOGLTextRenderer]
+  private def cacheRenderer(r: JOGLTextRenderer, f: Font) {
+    // ceches renderer object or recall form cache
+    val index = fontStore.indexOf(f)
+    if(index != -1){
+      renderer = rendStore.get(index)
+    } else {
+      renderer = new JOGLTextRenderer(f, true, true)
+      if(fontStore.size < REND_CACHE_LIMIT){
+        fontStore.add(f)
+        rendStore.add(renderer)
+        //println("new renderer add")
+      }
+    }
+  }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
     var w = anchorW
@@ -75,6 +96,9 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
+
+    // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
   def setTextAnchors(anchW: Int, anchH: Int): Unit = {
@@ -116,6 +140,9 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
+
+        // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
   private def pathLength(figure: Shape): Float = {
@@ -206,6 +233,9 @@ trait GLTextRenderer { self: GLCanvas =>
       it.next
     }
     renderer.endRendering
+
+    // binds again GLCanvas buffer
+    gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
 }
