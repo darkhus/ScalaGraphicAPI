@@ -1,14 +1,13 @@
 package graphic
 
-import java.awt.Font
-import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
-import java.awt.Shape
-import java.awt.geom.PathIterator
+import java.awt.{Font, Shape}
+import java.awt.geom.{PathIterator, Path2D}
 import java.util.ArrayList
+import com.jogamp.opengl.util.awt.{TextRenderer => JOGLTextRenderer}
 import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
-trait GLTextRenderer { self: GLCanvas =>
+trait GLTextRenderer { canvas: GLCanvas =>
 //  private val bufferId: Array[Int] = Array(0)
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
@@ -18,19 +17,18 @@ trait GLTextRenderer { self: GLCanvas =>
   var anchorW = ANCH_LEFT
   var anchorH = ANCH_BOT
   private val REND_CACHE_LIMIT = 100
-  def DefaultFont: Font = new Font("Times New Roman", Font.BOLD, 14)
+  
   private var _font = DefaultFont
   def font: Font = _font
   //def font_=(f: Font) = _font = f
-  def font_=(f: Font) = {
-    if(renderer.getFont.equals(f) == false ||
-       _useFractionalMetrics != useFractionalMetrics ||
-       _antialiased != antialiasedFont) {
-  
+  def font_=(f: Font) {
+    _font = f
+    if(renderer.getFont != f || useFractionalMetrics || antialiasedFont) { // TODO: why these tests?
+      /**
+       * apperance of font change as well according to those parameters;
+       * use could change it somewher in loop, those parameters can be ste by user
+       */
       cacheRenderer(renderer, f)
-//      renderer = new JOGLTextRenderer(f, antialiasedFont, useFractionalMetrics)
-//      _useFractionalMetrics = useFractionalMetrics
-//      _antialiased = antialiasedFont
     }
   }
   private var _antialiased = true
@@ -59,45 +57,29 @@ trait GLTextRenderer { self: GLCanvas =>
       renderer = new JOGLTextRenderer(f, true, true)
       if(fontStore.size < REND_CACHE_LIMIT){
         fontStore.add(f)
-        rendStore.add(renderer)
-        //println("new renderer add")
+        rendStore.add(renderer)        
       }
     }
   }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
-    var w = anchorW
-    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
-      anchorW match {
-        case ANCH_LEFT => w = 0
-        case ANCH_RIGHT =>
-          w = (renderer.getBounds(text)).getWidth.toInt
-        case ANCH_MID =>
-          w = (renderer.getBounds(text)).getWidth.toInt / 2
-      }
-    }
+    // TODO: what is the anchoring code doing here?
+    /**
+     * sets text in correct position, but ther doesnt need to be anchoring at all
+     */
+    val w = setAnchorW(text)
+    val h = setAnchorH(text)
 
-    var h = anchorH
-    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
-      anchorH match {
-        case ANCH_BOT => h = 0
-        case ANCH_TOP =>
-          h = (renderer.getBounds(text)).getHeight.toInt
-        case ANCH_MID =>
-          h = (renderer.getBounds(text)).getHeight.toInt / 2
-      }
-    }
     gl.glPushMatrix
-    renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
-    gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)
-    gl.getGL2().glLoadIdentity()
-    gl.glTranslatef(x-w, y-h, 0)
+    renderer.beginRendering(canvas.width, canvas.height)
+    gl.getGL2().glMatrixMode(GLMatrixFunc.GL_MODELVIEW)    
+    gl.glTranslatef(x, canvas.height-y, 0)
     renderer.setColor(color)
     renderer.draw(text, 0, 0)
     renderer.endRendering
     gl.glPopMatrix
 
-    // binds again GLCanvas buffer
+    /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
@@ -106,28 +88,14 @@ trait GLTextRenderer { self: GLCanvas =>
     this.anchorH = anchH
   }
 
-  def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
-    var w = anchorW
-    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
-      anchorW match {
-        case ANCH_LEFT => w = 0
-        case ANCH_RIGHT =>
-          w = (renderer.getBounds(text)).getWidth.intValue
-        case ANCH_MID =>
-          w = (renderer.getBounds(text)).getWidth.intValue / 2
-      }
-    }
+  // TODO: major code duplication with the other drawText method
 
-    var h = anchorH
-    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
-      anchorH match {
-        case ANCH_BOT => h = 0
-        case ANCH_TOP =>
-          h = (renderer.getBounds(text)).getHeight.intValue
-        case ANCH_MID =>
-          h = (renderer.getBounds(text)).getHeight.intValue / 2
-      }
-    }
+  /**
+   * done
+   */
+  def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
+    val w = setAnchorW(text)
+    val h = setAnchorH(text)
 
     gl.glPushMatrix
     renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
@@ -141,18 +109,49 @@ trait GLTextRenderer { self: GLCanvas =>
     renderer.endRendering
     gl.glPopMatrix
 
-        // binds again GLCanvas buffer
+     /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
 
-  private def pathLength(figure: Shape): Float = {
-    val path = figure.getPathIterator(null, 1.0)
+  private def setAnchorW(text: String): Int = {
+    var w = anchorW
+    if(anchorW >= Int.MinValue && anchorW <= Int.MinValue+2) {
+      anchorW match {
+        case ANCH_LEFT => w = 0
+        case ANCH_RIGHT =>
+          w = (renderer.getBounds(text)).getWidth.intValue
+        case ANCH_MID =>
+          w = (renderer.getBounds(text)).getWidth.intValue / 2
+      }      
+    }
+    return w
+  }
+
+  private def setAnchorH(text: String): Int =  {
+    var h = anchorH
+    if(anchorH >= Int.MinValue+2 && anchorH <= Int.MinValue+4) {
+      anchorH match {
+        case ANCH_BOT => h = 0
+        case ANCH_TOP =>
+          h = (renderer.getBounds(text)).getHeight.intValue
+        case ANCH_MID =>
+          h = (renderer.getBounds(text)).getHeight.intValue / 2
+      }
+    }
+    return h
+  }
+
+  private def pathLength(path: Path2D): Float = {
+    val iter = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 okay?
+    /**
+     * for sure, it is not visible, only sets character in corect position
+     */
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
     var len = 0.0f
 
-    while (!path.isDone()) {
-      path.currentSegment(point) match {
+    while (!iter.isDone()) {
+      iter.currentSegment(point) match {
         case PathIterator.SEG_MOVETO =>
             prevX = point(0)
             prevY = point(1)         
@@ -166,13 +165,13 @@ trait GLTextRenderer { self: GLCanvas =>
         case _ =>
           System.err.println("PathIterator contract violated")
       }
-      path.next()
+      iter.next()
     }
     return len
   }
 
-  def drawTextOnPath(text: String, shape: Shape): Unit = {
-    val it = shape.getPathIterator(null, 1.0)
+  def drawTextOnPath(text: String, path: Path2D): Unit = {
+    val it = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 is okay?
     val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f
     var currChar: Int = 0
@@ -181,13 +180,12 @@ trait GLTextRenderer { self: GLCanvas =>
     var next = 0.0f
     var nextAdv = 0.0f
 
-    val factor = pathLength(shape).toFloat/(renderer.getBounds(text)).getWidth.toFloat    
+    val factor = pathLength(path).toFloat/(renderer.getBounds(text)).getWidth.toFloat    
 
     renderer.beginRendering(gl.getContext.getGLDrawable.getWidth, gl.getContext.getGLDrawable.getHeight)
     renderer.setColor(color)
     
     while(currChar<lenght && !it.isDone) {
-
       it.currentSegment(point) match {
         case PathIterator.SEG_MOVETO =>
           prevX = point(0)
@@ -199,14 +197,14 @@ trait GLTextRenderer { self: GLCanvas =>
         case PathIterator.SEG_LINETO => 
           val dx = point(0)-prevX
           val dy = point(1)-prevY
-          val dist:Float = scala.Math.sqrt(dx*dx + dy*dy).toFloat
+          val dist = math.sqrt(dx*dx + dy*dy).toFloat
 
           if(dist >= next) {
-            val r:Float = 1.0f/dist
-            val angle:Float = scala.Math.atan2(dy, dx).toFloat
+            val r = 1.0f/dist
+            val angle = math.atan2(dy, dx).toFloat
             while(currChar<lenght && dist >= next) {
-              val x:Float = prevX + next*dx*r
-              val y:Float = prevY + next*dy*r
+              val x = prevX + next*dx*r
+              val y = prevY + next*dy*r
               val nextAdvTmp = nextAdv
               if(currChar+1<lenght)
                 nextAdv = renderer.getCharWidth(text.charAt(currChar+1))*0.5f
@@ -226,7 +224,6 @@ trait GLTextRenderer { self: GLCanvas =>
             prevX = point(0)
             prevY = point(1)
           }        
-        case PathIterator.SEG_CLOSE =>
         case _ =>
           System.err.println("PathIterator contract violated")
       }
@@ -234,8 +231,7 @@ trait GLTextRenderer { self: GLCanvas =>
     }
     renderer.endRendering
 
-    // binds again GLCanvas buffer
+    /* binds again main graphic buffer */
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
   }
-
 }

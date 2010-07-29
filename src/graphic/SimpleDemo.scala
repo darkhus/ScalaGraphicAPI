@@ -13,20 +13,67 @@ object SimpleDemo extends Demo {
     testSet1(g)
     //blendingSet1(g, 0.5f)
     //dashOffset += 0.1f
-    //strokeSet1(g, new BasicStroke(4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 50, Array(8f, 10f), dashOffset))
+    //strokeSet1(g, new BasicStroke(2))//, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 50, Array(18f, 20f), dashOffset))
     //clipSet1(g)
+    //shadersSet1(g)
+    //tessCacheSet1(g)
 
     countFPS
   }
 
+  def tessCacheSet1(g: GLCanvas){
+    g.clear(Color.WHITE)    
+      
+    var z = 0
+    val shapesNum = 1000
+    while(z < shapesNum){
+      // the best case
+      g.fill(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
+//      g.fillWithCache(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
+/*
+// worst case
+      val path = new Path2D.Float
+      path.append(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10, 200), false)
+      path.moveTo(z*3, 50)
+      path.lineTo(z*3, 50+30)
+      path.lineTo(z*3+10, 50+30)
+      path.closePath
+//      g.fill(path)
+      g.fillWithCache(path)
+*/
+      z+=1      
+    }    
+  }
+/*
+  def shadersSet1(g: GLCanvas){
+    g.clear(Color.WHITE)
+
+    g.color = new Color(0.2f, 0.2f, 0.8f)
+    g.shader = solidShader
+    g.fill(new Ellipse2D.Float(50, 50, 150, 75))
+    g.shader = vstripesShader
+    g.fill(new Ellipse2D.Float(250, 50, 150, 75))
+    g.shader = chessShader
+    g.fill(new Ellipse2D.Float(50, 150, 150, 75))
+    g.shader = circlesShader
+    g.fill(new Ellipse2D.Float(250, 150, 150, 75))
+
+    g.shader = grad1Shader
+    g.shader.setUniformParameter2("middle", 125.0f, 287.5f)
+    g.fill(new Ellipse2D.Float(50, 250, 150, 75))
+    g.shader = hstripesShader
+    g.fill(new Ellipse2D.Float(250, 250, 150, 75))
+    g.shader = null
+  }
+*/
   def clipSet1(g: GLCanvas){
     g.clear(Color.GRAY)
-    g.image = image2    
+//    g.image = image2
     g.clip = textOutline(new Font("Times New Roman", Font.BOLD, 98), "S C A L A", 40, 150)
     g.clip = textOutline(new Font("Times New Roman", Font.BOLD, 120), "S C A L A", 0, 250)
     g.stroke = new BasicStroke(10, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 50, Array(18f, 18f), dashOffset)
     g.clipStroke(textOutline(new Font("Times New Roman", Font.BOLD, 110), "S C A L A", 0, 450))
-    g.drawImage(0, 75, 500, 375)
+    g.drawImage(image2, 0, 75, 500, 375)
 
   }
 
@@ -102,9 +149,9 @@ object SimpleDemo extends Demo {
     g.stroke = new BasicStroke(3, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_BEVEL, 50, Array(4f, 8f), dashOffset)
     g.stroke(textOutline(new Font("Times New Roman", Font.BOLD, 108), "H e l l o", 100, 400))
 
-    g.color = new Color(1.0f, 0.5f, 0.3f)
-    g.font = new Font("Times New Roman", Font.BOLD, dashWidth.toInt*5)
-    g.drawTextOnPath("scala java kawa", new Ellipse2D.Float(100, 100, 150+(math.sin(animY1*5)*90.0).toInt, 100))
+//    g.color = new Color(1.0f, 0.5f, 0.3f)
+//    g.font = new Font("Times New Roman", Font.BOLD, dashWidth.toInt*5)
+//    g.drawTextOnPath("scala java kawa", new Ellipse2D.Float(100, 100, 150+(math.sin(animY1*5)*90.0).toInt, 100))
 
     animY1 +=0.01f
     val p = new Path2D.Float
@@ -120,11 +167,10 @@ object SimpleDemo extends Demo {
     g.stroke = new BasicStroke(14, BasicStroke.CAP_ROUND, BasicStroke.JOIN_BEVEL, 50, Array(10f, 15f), 0)
     g.color = new Color(0.8f, 0.2f, 0.2f)
     g.fill(p)
-    g.color = new Color(0.2f, 0.8f, 0.2f, 0.5f)
-    g.stroke(p)
+    g.color = new Color(0.2f, 0.8f, 0.2f, 0.5f)        
+    g.stroke(p)    
 
-    g.image = image1
-    g.drawImage(20, 20, 40, 40)
+    g.drawImage(image1, 20, 20, 40, 40)
 
   }
   

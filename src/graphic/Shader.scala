@@ -22,24 +22,26 @@ class Shader {
     "void main(void){"+
     "gl_FragColor = vec4(0.0,0.0,0.0,1.0);}"
   
-  def buildShader(gl: GL2): Unit = {
+  private def buildShader(gl: GL2): Unit = {
     this.gl = gl
     v = gl.glCreateShader(GL2ES2.GL_VERTEX_SHADER)
     f = gl.glCreateShader(GL2ES2.GL_FRAGMENT_SHADER)
     program = gl.glCreateProgram
   }
 
-  def compileShadersFromFile(fragName: String, vertName: String): Unit = {
+  def compileShadersFromFile(gl: GL2, fragName: String, vertName: String): Unit = {
+    buildShader(gl)
       try{
         val fragString = inputStreamToString(getClass.getResourceAsStream(fragName))
         val vertString = inputStreamToString(getClass.getResourceAsStream(vertName))
-        this.compileShadersFromString(fragString, vertString)
+        this.compileShadersFromString(gl, fragString, vertString)
       } catch {
         case e: Exception => { System.err.println("can't find shader file") } 
       }
   }
 
-  def compileShadersFromString(fragSrc: String, vertSrc: String): Unit = {
+  def compileShadersFromString(gl: GL2, fragSrc: String, vertSrc: String): Unit = {
+    buildShader(gl)
     var status:Array[Int] = new Array(1)
 
     if(fragSrc != null) {

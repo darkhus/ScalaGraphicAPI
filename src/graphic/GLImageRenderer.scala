@@ -5,7 +5,6 @@ import com.jogamp.opengl.util.texture.Texture
 import javax.media.opengl._
 
 trait GLImageRenderer { self: GLCanvas =>
-
   val MODE_BLEND = GL.GL_BLEND
   val MODE_MODULATE  = GL2ES1.GL_MODULATE
   val MODE_DECAL = GL2ES1.GL_DECAL
@@ -16,15 +15,13 @@ trait GLImageRenderer { self: GLCanvas =>
   private var texFilter = FILTER_LINEAR
   private var env_mode = MODE_MODULATE  
   private var _img: GLImage = null
-  def image: GLImage = _img
-  def image_=(img: GLImage) = _img = img
 
   def setImageEnv(env_mode:Int, texFilter:Int): Unit = {
     this.env_mode = env_mode
     this.texFilter = texFilter
   }
 
-  def drawImage(x: Int, y: Int, h: Int, w: Int): Unit = {
+  def drawImage(image: GLImage, x: Int, y: Int, h: Int, w: Int): Unit = {
     if(image != null){
     image.tex.enable
     image.tex.bind

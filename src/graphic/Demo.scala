@@ -9,7 +9,6 @@ import javax.media.opengl.GLEventListener
 import javax.media.opengl.GLProfile
 import javax.media.opengl.awt.{GLCanvas => JOGLCanvas}
 import javax.swing.JFrame
-import com.jogamp.opengl.util.texture.Texture
 import com.jogamp.opengl.util.texture.TextureIO
 import java.awt.font.FontRenderContext
 import java.io.IOException
@@ -19,7 +18,14 @@ abstract class Demo extends JFrame {
   val canvas = new GLCanvas  
   var image1: GLImage = null
   var image2: GLImage = null
-  val shader: Shader = new Shader
+  /*
+  val solidShader: Shader = new Shader
+  val hstripesShader: Shader = new Shader
+  val vstripesShader: Shader = new Shader
+  val chessShader: Shader = new Shader
+  val circlesShader: Shader = new Shader
+  val grad1Shader: Shader = new Shader
+  */
   var t0, lastFPSUpdate = System.nanoTime
   var t = 0
   var t1 = 0L
@@ -44,7 +50,7 @@ abstract class Demo extends JFrame {
     joglCanvas.requestFocusInWindow()
     setVisible(true)
 
-//    val anim = new FPSAnimator(joglCanvas, 50)
+//    val anim = new FPSAnimator(joglCanvas, 80, true)
     val anim = new Animator(joglCanvas)
     anim.setRunAsFastAsPossible(true)
     anim.start
@@ -53,28 +59,37 @@ abstract class Demo extends JFrame {
   object OGLEventListener extends GLEventListener {
     def init(drawable: GLAutoDrawable) {
       val gl = drawable.getGL.getGL2
-      canvas.init(gl)      
-      shader.buildShader(gl)
-      shader.compileShadersFromFile("data/solid.fs", "data/solid.vs")
+      canvas.init(gl)            
+/*      solidShader.compileShadersFromFile(gl, "data/solid.fs", "data/solid.vs")
+      hstripesShader.compileShadersFromFile(gl, "data/hstripes1.fs", "data/hstripes1.vs")
+      vstripesShader.compileShadersFromFile(gl, "data/vstripes1.fs", "data/vstripes1.vs")
+      chessShader.compileShadersFromFile(gl, "data/chessboard1.fs", "data/chessboard1.vs")
+      circlesShader.compileShadersFromFile(gl, "data/circles1.fs", "data/circles1.vs")
+      grad1Shader.compileShadersFromFile(gl, "data/grad1.fs", "data/grad1.vs")
+      */
       image1 = loadImage("data/CoffeeBean.bmp", "bmp")
       image2 = loadImage("data/Island.jpg", "jpg")
+      gl.setSwapInterval(0)
       drawable.setRealized(true)
     }
 
     def display(drawable: GLAutoDrawable) {
-      drawable.getContext.makeCurrent
-      canvas.gl = drawable.getGL.getGL2      
+//      drawable.getContext.makeCurrent
+      canvas.gl = drawable.getGL.getGL2
       draw(canvas)      
       drawable.getContext.release
     }
 
     def reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
+      canvas.gl = drawable.getGL.getGL2
       canvas.resize(drawable.getWidth, drawable.getHeight)
     }
+
     def dispose(drawable: GLAutoDrawable) {
-      drawable.getContext.makeCurrent
+      canvas.gl = drawable.getGL.getGL2
+      image1.tex.destroy(canvas.gl)
+      image2.tex.destroy(canvas.gl)      
       canvas.deinit
-      drawable.getContext.destroy
     }
   }
 
@@ -101,7 +116,7 @@ abstract class Demo extends JFrame {
     var fps = 1000000000.0/(t1 - t0)
     fpsCounter += fps
     val avg = fpsCounter / framesCounter
-    if(t1 - lastFPSUpdate > 1000000000){  // display fps in each sec
+    if(t1 - lastFPSUpdate > 1000000000){
       t += 1
       println("Fps: " + fps.toFloat +", Avg: " + avg.toFloat +", Sec: "+t)
       lastFPSUpdate = t1      
