@@ -279,23 +279,7 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
   def clearSkipArray() {
     skipingArray = new Array[Boolean](TESS_STORE_LIMIT)
   }
-  /**
-   * Tessellate a given shape which is assumed to be convex. The result is stored in the builder's
-   * coordinate store.
-   * 
-   * The result of this method is undefined for non-convex shapes and may throw an exception.
-   */
-
-  /**
-   * My answer:
-   * It is not right name. Before it was: triangulateConvexPath(path: PathIterator),
-   * where convex shape was triangulated, because as you wrote it is no sense to tessalate convex; Triangulation is
-   * much faster that tessellation, that why I have used it to create triangle strips for
-   * primitive shapes like Ellipse2D. Please look at previous fill(shape: Shape) method, there is simple test
-   * for convex shapes, the rest ones are assumed to be a concave and are tessellated.
-   * (In this case trianglulation means trianglultion to triangle strips)
-   * Before I have also used it to get stroke by using BasicStroke's method createStrokedShape.
-   */
+ 
   def tessellateConvex(shape: Shape) {
     val iter = shape.getPathIterator(null, flatnessFactor(shape))
     
@@ -316,19 +300,7 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
             coords += (contiguous(end-2), contiguous(end-1))
             end-=2
           }
-          // TODO @dariusz: I commented this out. Why would we need it?
 
-          /**
-           * My answer:
-           * This is important, becouse it closes trianangle strips structure, if we would like to
-           * add to buffer another shape's vertices strigt after above one without this additional vertex,
-           * then opengl would treat two different triangle strips sequences as one sequence.
-           * I have add this vertex as mark for opengl to prevent such situations. Anyway nothing will be
-           * changed when this shape structure will not be closed, becouse only one triangle strip sequence
-           * is draw per shape (exception it tessellation's triangle strips sequence), but I have add it to
-           * for sure close structure to prevent possible rendering bugs, and for test when loading all (or group)
-           * shapes's traingle strips sequence to buffer and display it at once.
-           */
           //addVertex(coord(gvi-2), coord(gvi-1)) 
         case _ =>
           Predef.error("PathIterator contract violated")
