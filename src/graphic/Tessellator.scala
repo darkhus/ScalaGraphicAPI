@@ -2,6 +2,8 @@
 package graphic
 
 import javax.media.opengl.glu.{GLU, GLUtessellatorCallback}
+import java.nio.FloatBuffer
+import java.util.ArrayList
 import javax.media.opengl.GL
 import java.awt.Shape
 import java.awt.geom.PathIterator
@@ -10,7 +12,11 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
   import builder._
   private val point = new Array[Float](6)
   protected var mode = 0
-  private val tobj = javax.media.opengl.glu.GLU.gluNewTess  
+  private val tobj = javax.media.opengl.glu.GLU.gluNewTess
+  val TESS_STORE_LIMIT = 300
+  private val shapeStore = new ArrayList[Shape]
+  private val vertsStore = new ArrayList[FloatBuffer]
+  private var skipingArray = new Array[Boolean](TESS_STORE_LIMIT)
   
   GLU.gluTessProperty(tobj, GLU.GLU_TESS_WINDING_RULE, GLU.GLU_TESS_WINDING_POSITIVE)
   GLU.gluTessCallback(tobj, GLU.GLU_TESS_VERTEX, this)
@@ -55,21 +61,6 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
     this.mode = mode
   }
   
-  // TODO: why don't we get rid of the temp array and propagate the primtive mode to the 
-  // glDrawArray call in GLCanvas
-
-  /**
-   * My answer:
-   * GLU tessellation seems to be designed for immidiate mode only. So as I have investigated it prodeuce
-   * polygons which are triangle fan, triangle strip, triangles. I cant see better
-   * solution to tessellate shape with glu (and use vbo) than capture verts (produced by glu
-   * which are in sequence of one of above mode), then turn it into triangle strips sequences. To do
-   * this there has to be the temp array which store tessellated verts in differents triangles' structures
-   * for further conversion.
-   * Get rid of the temp array and propagate the primtive mode would slow down rendering, as it would has to call
-   * many times glDrawArray. So I think that better is to convert everything to triangle strips and render
-   * by one glDrawArray.
-   */
   override def end() {
     var st = 0
     var end = tempCoords.size
@@ -163,7 +154,7 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
     //println("errorData")
   }
   
-  def tessellate(shape: Shape)  {
+  def tessellate(shape: Shape) {
     val path = shape.getPathIterator(null, flatnessFactor(shape))
     builder.rewind()
     this.setWindRule(path.getWindingRule)
@@ -197,6 +188,97 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
       this.endTessPolygon
   }
 
+  def tessellate(shape: Shape, cache: Boolean) {
+    var toRestore = false
+    var shapeInd = 0
+
+    while(toRestore == false && shapeStore.size > shapeInd && shapeInd<TESS_STORE_LIMIT && cache==true) {
+      if(skipingArray(shapeInd) == false) {// dont double comparasion
+        toRestore = compareShapes(shapeStore.get(shapeInd), shape)
+        skipingArray(shapeInd) = true
+      }
+      shapeInd+=1
+    }
+
+    if(toRestore && cache==true) {
+      //verts.position(0)
+      //verts.put(vertsStore.get(shapeInd-1))
+      println("Restore: "+vertsStore.size +", Ind: "+shapeInd)
+      val f = vertsStore.get(shapeInd-1)
+      builder.rewind
+      builder.fill(f)
+      //gvi = vertsStore.get(shapeInd-1).size
+      //tempTessIndex = 0      
+    } else {
+
+      val path = shape.getPathIterator(null, flatnessFactor(shape))
+      this.setWindRule(path.getWindingRule)
+      this.startTessPolygon
+      //gvi = 0
+      builder.rewind()
+      var prevSeg = -1
+      var closed = false
+      while(!path.isDone){
+        val seg = path.currentSegment(point)
+        seg match {
+          case java.awt.geom.PathIterator.SEG_MOVETO =>
+            if(prevSeg != -1 && closed == false)
+              this.endTessContour
+            this.startTessContour
+            closed = false
+            this.addVertexToTess(point(0), point(1))
+            prevSeg = seg
+          case java.awt.geom.PathIterator.SEG_LINETO =>
+            this.addVertexToTess(point(0), point(1))
+            prevSeg = seg
+          case java.awt.geom.PathIterator.SEG_CLOSE =>
+            this.endTessContour
+            closed = true
+            prevSeg = seg
+          case _ =>
+            System.err.println("PathIterator contract violated")
+        }
+        path.next
+      }
+
+      if(prevSeg != -1 && closed == false)
+        this.endTessContour
+
+      this.endTessPolygon
+
+      if(shapeStore.size <= TESS_STORE_LIMIT && cache==true) {
+        shapeStore.add(shape)
+        //val tessArray = new Array[Float](gvi)
+        //verts.array.copyToArray(tessArray, 0, gvi)
+        //vertsStore.add(tessArray)
+        builder.rewind
+        vertsStore.add(builder.coordData)
+        builder.newCoordData
+      }
+    }
+  }
+
+  private def compareShapes(s1: Shape, s2: Shape): Boolean = {
+    val point1 = new Array[Float](6)
+    val point2 = new Array[Float](6)
+    val p1 = s1.getPathIterator(null, 1.0)
+    val p2 = s2.getPathIterator(null, 1.0)
+    while(!p1.isDone && !p2.isDone){
+      p1.currentSegment(point1)
+      p2.currentSegment(point2)
+      if( !(point1(0) == point2(0) && point1(1) == point2(1)))
+        return false
+      p1.next
+      p2.next
+    }
+    if(!(p1.isDone && p2.isDone))
+      return false
+    return true
+  }
+
+  def clearSkipArray() {
+    skipingArray = new Array[Boolean](TESS_STORE_LIMIT)
+  }
   /**
    * Tessellate a given shape which is assumed to be convex. The result is stored in the builder's
    * coordinate store.

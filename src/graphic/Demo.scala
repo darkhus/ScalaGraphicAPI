@@ -18,14 +18,14 @@ abstract class Demo extends JFrame {
   val canvas = new GLCanvas  
   var image1: GLImage = null
   var image2: GLImage = null
-  /*
+  
   val solidShader: Shader = new Shader
   val hstripesShader: Shader = new Shader
   val vstripesShader: Shader = new Shader
   val chessShader: Shader = new Shader
   val circlesShader: Shader = new Shader
   val grad1Shader: Shader = new Shader
-  */
+  
   var t0, lastFPSUpdate = System.nanoTime
   var t = 0
   var t1 = 0L
@@ -60,13 +60,13 @@ abstract class Demo extends JFrame {
     def init(drawable: GLAutoDrawable) {
       val gl = drawable.getGL.getGL2
       canvas.init(gl)            
-/*      solidShader.compileShadersFromFile(gl, "data/solid.fs", "data/solid.vs")
+      solidShader.compileShadersFromFile(gl, "data/solid.fs", "data/solid.vs")
       hstripesShader.compileShadersFromFile(gl, "data/hstripes1.fs", "data/hstripes1.vs")
       vstripesShader.compileShadersFromFile(gl, "data/vstripes1.fs", "data/vstripes1.vs")
       chessShader.compileShadersFromFile(gl, "data/chessboard1.fs", "data/chessboard1.vs")
       circlesShader.compileShadersFromFile(gl, "data/circles1.fs", "data/circles1.vs")
       grad1Shader.compileShadersFromFile(gl, "data/grad1.fs", "data/grad1.vs")
-      */
+      
       image1 = loadImage("data/CoffeeBean.bmp", "bmp")
       image2 = loadImage("data/Island.jpg", "jpg")
       gl.setSwapInterval(0)

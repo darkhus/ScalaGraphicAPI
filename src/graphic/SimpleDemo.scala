@@ -10,13 +10,13 @@ object SimpleDemo extends Demo {
   var dashWidth = 4f
 
   def draw(g: GLCanvas) {
-    testSet1(g)
+    //testSet1(g)
     //blendingSet1(g, 0.5f)
     //dashOffset += 0.1f
     //strokeSet1(g, new BasicStroke(2))//, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 50, Array(18f, 20f), dashOffset))
     //clipSet1(g)
     //shadersSet1(g)
-    //tessCacheSet1(g)
+    tessCacheSet1(g)
 
     countFPS
   }
@@ -25,7 +25,7 @@ object SimpleDemo extends Demo {
     g.clear(Color.WHITE)    
       
     var z = 0
-    val shapesNum = 1000
+    val shapesNum = 4
     while(z < shapesNum){
       // the best case
       g.fill(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
@@ -44,7 +44,7 @@ object SimpleDemo extends Demo {
       z+=1      
     }    
   }
-/*
+
   def shadersSet1(g: GLCanvas){
     g.clear(Color.WHITE)
 
@@ -65,7 +65,7 @@ object SimpleDemo extends Demo {
     g.fill(new Ellipse2D.Float(250, 250, 150, 75))
     g.shader = null
   }
-*/
+
   def clipSet1(g: GLCanvas){
     g.clear(Color.GRAY)
 //    g.image = image2

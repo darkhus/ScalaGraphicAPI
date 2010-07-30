@@ -25,14 +25,20 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   private val tessellator = new Tessellator(builder)
   private val stroker = new Stroker(builder)
   
- // private val shapeStore = new ArrayList[Shape]
- // private val vertsStore = new ArrayList[FloatBuffer]
-  private val tessellationCache = new HashMap[Shape, FloatBuffer]()
-  
-  private val TESS_STORE_LIMIT = 6
+  private val tessellationCache = new HashMap[Shape, FloatBuffer]()      
+
+  private var _shader: Shader = null
+  def shader: Shader = _shader
+  def shader_=(s: Shader) {
+    if(s != null){
+      _shader = s
+      _shader.applyShader
+    } else {
+      gl.glUseProgram(0)
+    }
+  }
 
   private var _stroke = new BasicStroke
-
   def stroke: BasicStroke = _stroke
   def stroke_=(s: BasicStroke) {
     val w = s.getLineWidth
@@ -79,10 +85,8 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl2.glEnable(GL.GL_BLEND)
 
     gl2.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
-
-    // VBO initialization
-    gl.glGenBuffers(1, bufferId, 0)
-    resizeVBO()
+    
+    initVBO()
 
     gl2.glColor3f(0, 0, 0)
   }
@@ -156,36 +160,9 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     }
   }
 
-  // TODO: I am using the Shape.equals method now, which is overridden in simple subclasses 
-  // but not Path2D
-  // What was the reason to iterate over the path?
-
-  // becaouse it is no sense to compare shapes whitch are simple primitives, it is
-  // no sense to cache them as convex shapes which need only triangulation instead of 'costly'
-  // tessellation. Fact that equal method for Path2D doesn't work is meaningfull in this field,
-  // becaouse only shapes which are constructed using Path are most probably concave
-  // (and also other shapes builds by Area, but defenatley not single primitives ).
-  // So, this method compares two shapes geometry which has to be done by iterating its coordinate.
-  // In my opinion (and according to test which I have done so far), this method is fast for 'real use case'
-  private def compareShapes(s1: Shape, s2: Shape): Boolean = {
-    val point1 = new Array[Float](6)
-    val point2 = new Array[Float](6)
-    val p1 = s1.getPathIterator(null, 1.0)
-    val p2 = s2.getPathIterator(null, 1.0)
-    while(!p1.isDone && !p2.isDone){
-      p1.currentSegment(point1)
-      p2.currentSegment(point2)
-      if( !(point1(0) == point2(0) && point1(1) == point2(1)))
-        return false
-      p1.next
-      p2.next
-    }
-    if(!(p1.isDone && p2.isDone))
-      return false
-    return true
-  }
-
   private def tessShape(shape: Shape, doCache: Boolean)  {
+    tessellator.tessellate(shape, doCache)
+    /*
     if (tessellationCache contains shape) {
       val cachedCoords = tessellationCache(shape)
       builder.rewind()
@@ -193,11 +170,12 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     } else {
       tessellator.tessellate(shape)
 
-      if(doCache && tessellationCache.size <= TESS_STORE_LIMIT) {
+      if(doCache && tessellationCache.size <= tessellator.TESS_STORE_LIMIT) {
         tessellationCache(shape) = builder.coordData
         builder.newCoordData
       }
     }
+    */
   }
 
   def clear(c: Color): Unit = {
@@ -211,17 +189,22 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     this.fill(new Rectangle2D.Float(0, 0, width, height))
     gl.glDisable(GL.GL_STENCIL_TEST)
     gl.glEnable(GL.GL_BLEND)
+    gl.glColor4f(_color.getRed/255f, _color.getGreen/255f, _color.getBlue/255f, _color.getAlpha/255f)
+    tessellator.clearSkipArray()
   }
 
   def deinit() {
     gl.glDeleteBuffers(1, bufferId, 0)
   }
 
-  private def resizeVBO() {
+
+  private def initVBO() {
+    gl.glGenBuffers(1, bufferId, 0)
     gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId(0))
     gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)
     gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*builder.size, null, GL.GL_DYNAMIC_DRAW)
   }
+
 
   private def fillAndDrawBuffer() {
     val count = builder.vertexCount
