@@ -25,9 +25,13 @@ abstract class Canvas {
   def stroke(shape: Shape)
   def drawText(text: String, x: Int, y: Int)
   def drawTextOnPath(text: String, path: Path2D)
+  def drawImage(image: GLImage, x: Int, y: Int, width: Int, height: Int)
   //def drawImage(image: BufferedImage, x: Int, y: Int, width: Int, height: Int)
   
   def fill(shape: Shape)
   def clip_=(shape: Shape)
   def clip: Shape
+  
+  def shader: Shader
+  def shader_=(s: Shader)
 }

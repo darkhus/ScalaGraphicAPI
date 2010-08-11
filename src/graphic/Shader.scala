@@ -2,16 +2,14 @@
 package graphic
 
 import java.io.BufferedReader
-import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import javax.media.opengl._
 
-class Shader {
-  
+class Shader {  
   private var v = 0
   private var f = 0
-  private var program: Int = 0
+  private var program = 0
   private var gl: GL2 = null
   
   private val vs =
@@ -36,7 +34,7 @@ class Shader {
         val vertString = inputStreamToString(getClass.getResourceAsStream(vertName))
         this.compileShadersFromString(gl, fragString, vertString)
       } catch {
-        case e: Exception => { System.err.println("can't find shader file") } 
+        case e: Exception => { System.err.println("Can't find shader file") }
       }
   }
 
@@ -69,8 +67,7 @@ class Shader {
     gl.glAttachShader(program, v)
     gl.glAttachShader(program, f)
     gl.glLinkProgram(program)
-    gl.glValidateProgram(program)
-    //gl.glUseProgram(program)
+    gl.glValidateProgram(program)    
   }
   
   def applyShader(): Unit = {
@@ -81,6 +78,13 @@ class Shader {
     gl.glUseProgram(0)
   }
 
+  def setUniformParameter1v(name: String, value: Array[Float]) {
+    val loc = gl.glGetUniformLocation(this.program, name)
+    if(loc == -1) println("No such uniform parameter: "+name)
+    else {
+      gl.glUniform1fv(loc, value.size, value, 0)
+    }
+  }
   def setUniformParameter1(name: String, value: Any): Unit = {
     val loc = gl.glGetUniformLocation(this.program, name)
     if(loc == -1) println("No such uniform parameter: "+name)

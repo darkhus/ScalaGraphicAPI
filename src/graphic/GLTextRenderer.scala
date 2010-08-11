@@ -8,7 +8,6 @@ import javax.media.opengl.GL
 import javax.media.opengl.fixedfunc.GLMatrixFunc
 
 trait GLTextRenderer { canvas: GLCanvas =>
-//  private val bufferId: Array[Int] = Array(0)
   val ANCH_LEFT = Int.MinValue
   val ANCH_RIGHT = Int.MinValue+1
   val ANCH_MID = Int.MinValue+2
@@ -19,15 +18,10 @@ trait GLTextRenderer { canvas: GLCanvas =>
   private val REND_CACHE_LIMIT = 100
   
   private var _font = DefaultFont
-  def font: Font = _font
-  //def font_=(f: Font) = _font = f
+  def font: Font = _font  
   def font_=(f: Font) {
     _font = f
     if(renderer.getFont != f || useFractionalMetrics || antialiasedFont) { // TODO: why these tests?
-      /**
-       * apperance of font change as well according to those parameters;
-       * use could change it somewher in loop, those parameters can be ste by user
-       */
       cacheRenderer(renderer, f)
     }
   }
@@ -63,10 +57,6 @@ trait GLTextRenderer { canvas: GLCanvas =>
   }
 
   def drawText(text: String, x: Int, y: Int): Unit = {
-    // TODO: what is the anchoring code doing here?
-    /**
-     * sets text in correct position, but ther doesnt need to be anchoring at all
-     */
     val w = setAnchorW(text)
     val h = setAnchorH(text)
 
@@ -88,11 +78,6 @@ trait GLTextRenderer { canvas: GLCanvas =>
     this.anchorH = anchH
   }
 
-  // TODO: major code duplication with the other drawText method
-
-  /**
-   * done
-   */
   def drawText(text: String, x: Int, y: Int, angle: Float): Unit = {
     val w = setAnchorW(text)
     val h = setAnchorH(text)
@@ -142,10 +127,7 @@ trait GLTextRenderer { canvas: GLCanvas =>
   }
 
   private def pathLength(path: Path2D): Float = {
-    val iter = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 okay?
-    /**
-     * for sure, it is not visible, only sets character in corect position
-     */
+    val iter = path.getPathIterator(null, 1.0)
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
     var len = 0.0f
@@ -171,7 +153,7 @@ trait GLTextRenderer { canvas: GLCanvas =>
   }
 
   def drawTextOnPath(text: String, path: Path2D): Unit = {
-    val it = path.getPathIterator(null, 1.0) // TODO: flatness 1.0 is okay?
+    val it = path.getPathIterator(null, 1.0)
     val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f
     var currChar: Int = 0

@@ -13,7 +13,7 @@ trait GLImageRenderer { self: GLCanvas =>
   val FILTER_MIPMAP = GL.GL_LINEAR_MIPMAP_LINEAR
   val FILTER_ANISOTROPIC = -1
   private var texFilter = FILTER_LINEAR
-  private var env_mode = MODE_MODULATE  
+  private var env_mode = MODE_DECAL
   private var _img: GLImage = null
 
   def setImageEnv(env_mode:Int, texFilter:Int): Unit = {
@@ -25,7 +25,9 @@ trait GLImageRenderer { self: GLCanvas =>
     if(image != null){
     image.tex.enable
     image.tex.bind
-    gl.glTexEnvi(GL2ES1.GL_TEXTURE_ENV, GL2ES1.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE)//this.env_mode)
+    gl.glTexEnvi(GL2ES1.GL_TEXTURE_ENV, GL2ES1.GL_TEXTURE_ENV_MODE, this.env_mode)
+    gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+    gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
     this.texFilter match {
       case FILTER_NN => {
           gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, texFilter)
@@ -36,16 +38,16 @@ trait GLImageRenderer { self: GLCanvas =>
           gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, texFilter)
       }
       case FILTER_MIPMAP => {
-          gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, texFilter)
+          gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
           gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, texFilter)
       }
       case FILTER_ANISOTROPIC => {
           if(gl.isExtensionAvailable("GL_EXT_texture_filter_anisotropic")) {
-            var max:Array[Float] = new Array(1)
+            var max: Array[Float] = new Array(1)
             gl.glGetFloatv(GL.GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0)
             gl.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_ANISOTROPY_EXT, max(0))
           } else {
-            gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+            gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
             gl.glTexEnvi(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
           }
       }

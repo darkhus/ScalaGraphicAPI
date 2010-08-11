@@ -25,7 +25,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
   private val tessellator = new Tessellator(builder)
   private val stroker = new Stroker(builder)
   
-  private val tessellationCache = new HashMap[Shape, FloatBuffer]()      
+  //private val tessellationCache = new HashMap[Shape, FloatBuffer]()      
 
   private var _shader: Shader = null
   def shader: Shader = _shader
@@ -85,7 +85,6 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl2.glEnable(GL.GL_BLEND)
 
     gl2.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
-    
     initVBO()
 
     gl2.glColor3f(0, 0, 0)
@@ -205,7 +204,6 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl.glBufferData(GL.GL_ARRAY_BUFFER, 4*builder.size, null, GL.GL_DYNAMIC_DRAW)
   }
 
-
   private def fillAndDrawBuffer() {
     val count = builder.vertexCount
     builder.rewind()
@@ -216,7 +214,7 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
 
     /**
      * on XP it is speed up only when contex is released in each frame,
-     * otherwise glBufferSubData is faster
+     * otherwise glBufferSubData is faster than glBufferData
      */
     
     gl.glVertexPointer(2, GL.GL_FLOAT, 0, 0)

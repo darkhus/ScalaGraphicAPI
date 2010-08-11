@@ -210,41 +210,7 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
       //gvi = vertsStore.get(shapeInd-1).size
       //tempTessIndex = 0      
     } else {
-
-      val path = shape.getPathIterator(null, flatnessFactor(shape))
-      this.setWindRule(path.getWindingRule)
-      this.startTessPolygon
-      //gvi = 0
-      builder.rewind()
-      var prevSeg = -1
-      var closed = false
-      while(!path.isDone){
-        val seg = path.currentSegment(point)
-        seg match {
-          case java.awt.geom.PathIterator.SEG_MOVETO =>
-            if(prevSeg != -1 && closed == false)
-              this.endTessContour
-            this.startTessContour
-            closed = false
-            this.addVertexToTess(point(0), point(1))
-            prevSeg = seg
-          case java.awt.geom.PathIterator.SEG_LINETO =>
-            this.addVertexToTess(point(0), point(1))
-            prevSeg = seg
-          case java.awt.geom.PathIterator.SEG_CLOSE =>
-            this.endTessContour
-            closed = true
-            prevSeg = seg
-          case _ =>
-            System.err.println("PathIterator contract violated")
-        }
-        path.next
-      }
-
-      if(prevSeg != -1 && closed == false)
-        this.endTessContour
-
-      this.endTessPolygon
+      tessellate(shape)
 
       if(shapeStore.size <= TESS_STORE_LIMIT && cache==true) {
         shapeStore.add(shape)
@@ -279,7 +245,8 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
   def clearSkipArray() {
     skipingArray = new Array[Boolean](TESS_STORE_LIMIT)
   }
- 
+
+  // triangulation
   def tessellateConvex(shape: Shape) {
     val iter = shape.getPathIterator(null, flatnessFactor(shape))
     
@@ -300,7 +267,6 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
             coords += (contiguous(end-2), contiguous(end-1))
             end-=2
           }
-
           //addVertex(coord(gvi-2), coord(gvi-1)) 
         case _ =>
           Predef.error("PathIterator contract violated")
