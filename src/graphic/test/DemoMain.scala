@@ -23,11 +23,11 @@ object DemoMain {
   
   def main(args: Array[String]) {
     val (flags, demoIds) = args.partition(_.startsWith("-"))
-/*    if (demoIds.isEmpty || !demos.contains(demoIds(0).toLowerCase)) {
+    if (demoIds.isEmpty || !demos.contains(demoIds(0).toLowerCase)) {
       println("No test specified. Available tests are: "+ demos.keys.mkString(", "))
       return
     }
-  */
+  
     val demoId = demoIds(0).toLowerCase
     val demo = demos(demoId)
     
