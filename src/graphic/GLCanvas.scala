@@ -29,8 +29,9 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
 
   private var _shader: Shader = null
   def shader: Shader = _shader
-  def shader_=(s: Shader) {
+  def shader_=(s: Shader) {    
     if(s != null){
+      gl.glDisable(GL.GL_BLEND) // for image filtering
       _shader = s
       _shader.applyShader
     } else {

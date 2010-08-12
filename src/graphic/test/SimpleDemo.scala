@@ -119,35 +119,37 @@ object SimpleDemo extends FPSDemo {
     g.shader = null
     g.color = new Color(1.0f, 1.0f, 1.0f, 1.0f)
 
-    g.drawImage(image2, 0, 244, 256, 256)
-
     // gaussian blur
-    kernel(0) = 1.0f/16.0f
-    kernel(1) = 2.0f/16.0f
-    kernel(2) = 1.0f/16.0f
-    kernel(3) = 2.0f/16.0f
-    kernel(4) = 4.0f/16.0f
-    kernel(5) = 2.0f/16.0f
-    kernel(6) = 1.0f/16.0f
-    kernel(7) = 2.0f/16.0f
-    kernel(8) = 1.0f/16.0f
+    kernel = Array(1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f,
+                   2.0f/16.0f, 4.0f/16.0f, 2.0f/16.0f,
+                   1.0f/16.0f, 2.0f/16.0f, 1.0f/16.0f)
     g.shader = filterShader
     g.shader.setUniformParameter1v("kernel", kernel)
-    g.drawImage(image2, 0, 0, 256, 256)
+    g.drawImage(image2, 10, 10, 230, 230)
 
     // sharpen
-    kernel(0) = -1.0f
-    kernel(1) = -1.0f
-    kernel(2) = -1.0f
-    kernel(3) = -1.0f
-    kernel(4) = 9.0f
-    kernel(5) = -1.0f
-    kernel(6) = -1.0f
-    kernel(7) = -1.0f
-    kernel(8) = -1.0f
+    kernel = Array(-1.0f, -1.0f, -1.0f,
+                   -1.0f, 9.0f, -1.0f,
+                   -1.0f, -1.0f, -1.0f)
     g.shader = filterShader
     g.shader.setUniformParameter1v("kernel", kernel)
-    g.drawImage(image2, 244, 244, 256, 256)
+    g.drawImage(image2, 260, 10, 230, 230)
+
+    // emboss
+    kernel = Array(2.0f, 0.0f, 0.0f,
+                   0.0f, -1.0f, 0.0f,
+                   0.0f, 0.0f, -1.0f)
+    g.shader = filterShader
+    g.shader.setUniformParameter1v("kernel", kernel)
+    g.drawImage(image2, 10, 260, 230, 230)
+
+    // laplacian
+    kernel = Array(0.0f, 1.0f, 0.0f,
+                   1.0f, -4.0f, 1.0f,
+                   0.0f, 1.0f, 0.0f)
+    g.shader = filterShader
+    g.shader.setUniformParameter1v("kernel", kernel)
+    g.drawImage(image2, 260, 260, 230, 230)
 
     g.shader = null
   }
