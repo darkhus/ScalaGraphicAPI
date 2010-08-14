@@ -88,6 +88,10 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl2.glEnableClientState(javax.media.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY)
     initVBO()
 
+    this.texture = com.jogamp.opengl.util.texture.awt.AWTTextureIO.newTexture(GLProfile.getDefault,
+      new java.awt.image.BufferedImage(MAX_IMAGE_DIM, MAX_IMAGE_DIM, java.awt.image.BufferedImage.TYPE_INT_ARGB),
+      true)
+
     gl2.glColor3f(0, 0, 0)
   }
 
@@ -222,5 +226,19 @@ class GLCanvas extends Canvas with GLTextRenderer with GLImageRenderer {
     gl.glBufferData(GL.GL_ARRAY_BUFFER, 8*count, builder.coordData, GL.GL_DYNAMIC_DRAW)
     //gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, count*8, verts)
     gl.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, count)
+  }
+
+  def loadImage(f: java.io.InputStream, sufix: String): GLImage = {
+    //val f: java.io.InputStream = getClass.getResourceAsStream(name)
+    try {
+      val img = com.jogamp.opengl.util.texture.TextureIO.newTexture(f, true, sufix)
+      return new GLImage(img)
+    } catch {
+      case ioe:java.io.IOException => {
+          error("Image loading: can't find file "+"\n"+ioe.toString)
+        }
+      case e: Exception => { error("Image loading: " + e.toString) }
+    }
+    return null
   }
 }

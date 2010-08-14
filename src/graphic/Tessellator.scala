@@ -60,7 +60,10 @@ class Tessellator(builder: GeometryBuilder) extends GLUtessellatorCallback {
   override def begin(mode: Int) {
     this.mode = mode
   }
-  
+
+  /*
+   * different types to triangle strips
+   */
   override def end() {
     var st = 0
     var end = tempCoords.size

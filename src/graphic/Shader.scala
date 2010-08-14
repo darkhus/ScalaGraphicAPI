@@ -27,6 +27,17 @@ class Shader {
     program = gl.glCreateProgram
   }
 
+  def compileShadersFromStream(gl: GL2, frag: InputStream, vert: InputStream): Unit = {
+    buildShader(gl)
+      try{
+        val fragString = inputStreamToString(frag)
+        val vertString = inputStreamToString(vert)
+        this.compileShadersFromString(gl, fragString, vertString)
+      } catch {
+        case e: Exception => { System.err.println("Can't find shader file") }
+      }
+  }
+
   def compileShadersFromFile(gl: GL2, fragName: String, vertName: String): Unit = {
     buildShader(gl)
       try{
@@ -82,7 +93,7 @@ class Shader {
     val loc = gl.glGetUniformLocation(this.program, name)
     if(loc == -1) println("No such uniform parameter: "+name)
     else {
-      gl.glUniform1fv(loc, value.size, value, 0)
+      gl.glUniform1fv(loc, value.size, value.asInstanceOf[Array[Float]], 0)
     }
   }
   def setUniformParameter1(name: String, value: Any): Unit = {

@@ -126,7 +126,7 @@ trait GLTextRenderer { canvas: GLCanvas =>
     return h
   }
 
-  private def pathLength(path: Path2D): Float = {
+  private def pathLength(path: Shape): Float = {
     val iter = path.getPathIterator(null, 1.0)
     val point = new Array[Float](6)
     var prevX = 0.0f; var prevY = 0.0f
@@ -152,7 +152,7 @@ trait GLTextRenderer { canvas: GLCanvas =>
     return len
   }
 
-  def drawTextOnPath(text: String, path: Path2D): Unit = {
+  def drawTextOnPath(text: String, path: Shape): Unit = {
     val it = path.getPathIterator(null, 1.0)
     val lenght = text.length
     var prevX = 0.0f; var prevY = 0.0f

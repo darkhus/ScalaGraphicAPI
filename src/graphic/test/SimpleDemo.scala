@@ -1,6 +1,7 @@
 package graphic
 package test
 
+import java.awt.image.BufferedImage
 import java.awt.{Canvas => _, _}
 import com.jogamp.opengl.util.texture.TextureIO
 import java.awt.geom._
@@ -21,6 +22,8 @@ object SimpleDemo extends FPSDemo {
   val filterShader: Shader = new Shader
   var image1: GLImage = null
   var image2: GLImage = null
+  var bim: BufferedImage = null
+  var bim2: BufferedImage = null
 
   def loadImage(name: String, sufix: String): GLImage = {
     val f: InputStream = getClass.getResourceAsStream(name)
@@ -50,7 +53,9 @@ object SimpleDemo extends FPSDemo {
 
     image1 = loadImage("data/CoffeeBean.bmp", "bmp")
     image2 = loadImage("data/Island.bmp", "bmp")
-
+    
+    bim = javax.imageio.ImageIO.read(getClass.getResourceAsStream("data/Island.bmp"))
+    bim2 = javax.imageio.ImageIO.read(getClass.getResourceAsStream("data/CoffeeBean.bmp"))
   }
 
   def draw(g: Canvas) {
@@ -60,32 +65,18 @@ object SimpleDemo extends FPSDemo {
     //strokeSet1(g, new BasicStroke(2))//, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 50, Array(18f, 20f), dashOffset))
     //clipSet1(g)
     //shadersSet1(g)
-    shadersSet2(g)
+    //shadersSet2(g)
+    imageSet1(g)
     //tessCacheSet1(g)
   }
 
-  def tessCacheSet1(g: Canvas){
-    g.clear(Color.WHITE)    
-      
-    var z = 0
-    val shapesNum = 4
-    while(z < shapesNum){
-      // the best case
-      g.fill(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
-//      g.fillWithCache(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
-/*
-// worst case
-      val path = new Path2D.Float
-      path.append(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10, 200), false)
-      path.moveTo(z*3, 50)
-      path.lineTo(z*3, 50+30)
-      path.lineTo(z*3+10, 50+30)
-      path.closePath
-//      g.fill(path)
-      g.fillWithCache(path)
-*/
-      z+=1      
-    }    
+  def imageSet1(g: Canvas) {
+    g.clear(Color.WHITE)
+    g.color = new Color(1.0f, 1.0f, 1.0f, 1.0f)
+    g.drawImage(image1, 350, 0, 200, 200) //GLImage
+    g.drawImage(bim, 0, 0, 300, 300)  // BufferedImage
+    g.drawImage(image2, 0, 350, 200, 200)
+    g.drawImage(bim2, 256, 256, 300, 300)
   }
 
   def shadersSet1(g: Canvas){
@@ -152,6 +143,30 @@ object SimpleDemo extends FPSDemo {
     g.drawImage(image2, 260, 260, 230, 230)
 
     g.shader = null
+  }
+
+  def tessCacheSet1(g: Canvas){
+    g.clear(Color.WHITE)
+
+    var z = 0
+    val shapesNum = 4
+    while(z < shapesNum){
+      // the best case
+      g.fill(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
+//      g.fillWithCache(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10+z, 200+z))
+/*
+// worst case
+      val path = new Path2D.Float
+      path.append(textOutline(new Font("Times New Roman", Font.BOLD, 108), "ABCD", 10, 200), false)
+      path.moveTo(z*3, 50)
+      path.lineTo(z*3, 50+30)
+      path.lineTo(z*3+10, 50+30)
+      path.closePath
+//      g.fill(path)
+      g.fillWithCache(path)
+*/
+      z+=1
+    }
   }
 
   def clipSet1(g: Canvas){
