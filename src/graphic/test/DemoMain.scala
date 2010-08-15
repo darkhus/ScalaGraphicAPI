@@ -22,6 +22,7 @@ object DemoMain {
       "ellipsecount" -> EllipseCountDemo)
   
   def main(args: Array[String]) {
+    
     val (flags, demoIds) = args.partition(_.startsWith("-"))
     if (demoIds.isEmpty || !demos.contains(demoIds(0).toLowerCase)) {
       println("No test specified. Available tests are: "+ demos.keys.mkString(", "))
@@ -53,12 +54,10 @@ object GLAWTLauncher extends Launcher {
     val frame = new JFrame(title)
     val profile = GLProfile.getDefault
     val caps = new GLCapabilities(profile)
-    caps.setHardwareAccelerated(true)
+    
     caps.setSampleBuffers(true)
-    caps.setNumSamples(4)
-    caps.setStencilBits(8)
     caps.setDoubleBuffered(true)
-    println(caps.toString)
+
     val joglCanvas = new JOGLCanvas(caps)
     joglCanvas.addGLEventListener(new OGLEventListener(demo))
     frame.add(joglCanvas)
@@ -81,13 +80,22 @@ object GLAWTLauncher extends Launcher {
       demo.gl = gl
       demo.init()
       canvas.init(gl)   
+
+      gl.setSwapInterval(0)
+      drawable.setAutoSwapBufferMode(true)
+      System.err.println("Chosen GLCapabilities: " + drawable.getChosenGLCapabilities())
+      System.err.println("GL_VENDOR: " + gl.glGetString(GL.GL_VENDOR))
+      System.err.println("GL_RENDERER: " + gl.glGetString(GL.GL_RENDERER))
+      System.err.println("GL_VERSION: " + gl.glGetString(GL.GL_VERSION))
+      System.err.println(drawable.toString())
       drawable.setRealized(true)
     }
 
     def display(drawable: GLAutoDrawable) {
       //drawable.getContext.makeCurrent
       canvas.gl = drawable.getGL.getGL2      
-      demo.step(canvas)      
+      demo.step(canvas)
+      drawable.swapBuffers
       //drawable.getContext.release
     }
 
